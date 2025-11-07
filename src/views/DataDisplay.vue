@@ -10,8 +10,8 @@
           <span class="stat-label">测试记录</span>
         </div>
         <div class="stat-item">
-          <span class="stat-number">5</span>
-          <span class="stat-label">发动机型号</span>
+          <span class="stat-number">{{ dataTypes.length }}</span>
+          <span class="stat-label">数据类型</span>
         </div>
       </div>
     </div>
@@ -53,7 +53,16 @@
           </table>
       </div>
 
-        <div v-if="tableData.length === 0" class="empty-state">
+        <div v-if="loading" class="empty-state">
+          <h3>加载中...</h3>
+          <p>正在从后端获取数据...</p>
+        </div>
+        <div v-else-if="error" class="empty-state">
+          <h3>加载失败</h3>
+          <p>{{ error }}</p>
+          <button @click="loadData" class="btn-visualize" style="margin-top: 20px;">重试</button>
+        </div>
+        <div v-else-if="tableData.length === 0" class="empty-state">
           <h3>暂无测试数据</h3>
           <p>目前没有发动机测试数据记录。</p>
         </div>
@@ -63,47 +72,16 @@
 </template>
 
 <script>
+import { getDataTypes } from '../services/api'
+
 export default {
   name: 'DataDisplay',
   data() {
     return {
-      tableData: [
-        {
-          id: 1,
-          serialNumber: 'SP2024001',
-          engineModel: 'CFM56-7B',
-          testDate: '2024-01-15',
-          testBenchNumber: 'TB-A001'
-        },
-        {
-          id: 2,
-          serialNumber: 'SP2024002',
-          engineModel: 'GE90-115B',
-          testDate: '2024-01-18',
-          testBenchNumber: 'TB-A002'
-        },
-        {
-          id: 3,
-          serialNumber: 'SP2024003',
-          engineModel: 'Trent 900',
-          testDate: '2024-01-20',
-          testBenchNumber: 'TB-B001'
-        },
-        {
-          id: 4,
-          serialNumber: 'SP2024004',
-          engineModel: 'CFM56-5B',
-          testDate: '2024-01-22',
-          testBenchNumber: 'TB-A003'
-        },
-        {
-          id: 5,
-          serialNumber: 'SP2024005',
-          engineModel: 'PW1100G',
-          testDate: '2024-01-25',
-          testBenchNumber: 'TB-B002'
-        }
-      ]
+      tableData: [],
+      loading: false,
+      error: null,
+      dataTypes: []
     }
   },
   mounted() {
@@ -112,6 +90,8 @@ export default {
     if (mainContent) {
       mainContent.classList.add('fullscreen');
     }
+    // 加载数据
+    this.loadData()
   },
   beforeUnmount() {
     // 清理时移除特殊类名
@@ -120,18 +100,45 @@ export default {
       mainContent.classList.remove('fullscreen');
     }
   },
-         methods: {
-           visualizeData(item) {
-             // 跳转到传感器数据可视化页面
-             this.$router.push({
-               name: 'SensorVisualization',
-               params: { id: item.id },
-               query: {
-                 engineModel: item.engineModel,
-                 testDate: item.testDate,
-                 testBenchNumber: item.testBenchNumber
-               }
-             });
+  methods: {
+    async loadData() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        // 获取所有数据类型
+        const datatypes = await getDataTypes()
+        this.dataTypes = datatypes
+        
+        // 将数据类型转换为表格数据格式
+        this.tableData = datatypes.map((dt, index) => ({
+          id: index + 1,
+          serialNumber: dt.name || `TYPE-${index + 1}`,
+          engineModel: dt.name || '未知类型',
+          testDate: new Date().toISOString().split('T')[0], // 使用当前日期
+          testBenchNumber: `TB-${String(index + 1).padStart(3, '0')}`,
+          dataType: dt.name,
+          fileCount: dt.files ? dt.files.length : 0
+        }))
+      } catch (error) {
+        console.error('加载数据失败:', error)
+        this.error = error.message || '加载数据失败'
+      } finally {
+        this.loading = false
+      }
+    },
+    visualizeData(item) {
+      // 跳转到传感器数据可视化页面
+      this.$router.push({
+        name: 'SensorVisualization',
+        params: { id: item.id },
+        query: {
+          engineModel: item.engineModel || item.dataType,
+          testDate: item.testDate,
+          testBenchNumber: item.testBenchNumber,
+          dataType: item.dataType
+        }
+      });
     }
   }
 }

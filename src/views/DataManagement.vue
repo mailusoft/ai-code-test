@@ -6,39 +6,152 @@
       </div>
       <div class="header-stats">
         <div class="stat-item">
-          <span class="stat-number">4</span>
+          <span class="stat-number">{{ tabs.length }}</span>
           <span class="stat-label">管理功能</span>
         </div>
         <div class="stat-item">
-          <span class="stat-number">2.3GB</span>
-          <span class="stat-label">备份大小</span>
+          <span class="stat-number">{{ fileTree ? (fileTree.file_count || 0) : 0 }}</span>
+          <span class="stat-label">文件数量</span>
         </div>
       </div>
     </div>
 
     <div class="page-content">
-      <!-- 内容已全部清空 -->
+      <div class="management-tabs">
+        <div class="tab-buttons">
+          <button 
+            v-for="tab in tabs" 
+            :key="tab.id"
+            @click="activeTab = tab.id"
+            :class="['tab-button', { active: activeTab === tab.id }]"
+          >
+            {{ tab.name }}
+          </button>
+        </div>
+        
+        <div class="tab-content">
+          <!-- 文件树查看 -->
+          <div v-show="activeTab === 'import-export'" class="tab-panel">
+            <div class="panel-section">
+              <h3>📁 数据文件结构</h3>
+              <div v-if="loading" class="loading-state">加载中...</div>
+              <div v-else-if="error" class="error-state">
+                <p>{{ error }}</p>
+                <button @click="loadFileTree" class="btn btn-primary">重试</button>
+              </div>
+              <div v-else-if="fileTree" class="file-tree-container">
+                <FileTreeNode :node="fileTree" />
+              </div>
+            </div>
+          </div>
+          
+          <!-- 其他标签页内容 -->
+          <div v-show="activeTab === 'backup'" class="tab-panel">
+            <div class="panel-section">
+              <h3>数据备份</h3>
+              <p>备份功能开发中...</p>
+            </div>
+          </div>
+          
+          <div v-show="activeTab === 'cleanup'" class="tab-panel">
+            <div class="panel-section">
+              <h3>数据清理</h3>
+              <p>清理功能开发中...</p>
+            </div>
+          </div>
+          
+          <div v-show="activeTab === 'permissions'" class="tab-panel">
+            <div class="panel-section">
+              <h3>权限管理</h3>
+              <p>权限管理功能开发中...</p>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script>
+import { getDataTree } from '../services/api'
+
 export default {
   name: 'DataManagement',
+  components: {
+    FileTreeNode: {
+      props: ['node'],
+      template: `
+        <div class="file-tree-node">
+          <div class="node-item" @click="toggle">
+            <span class="node-icon">{{ nodeIcon }}</span>
+            <span class="node-name">{{ node.name }}</span>
+            <span v-if="node.type === 'file'" class="node-size">{{ formatSize(node.size_mb) }}</span>
+          </div>
+          <div v-if="expanded && node.children" class="node-children">
+            <FileTreeNode 
+              v-for="child in node.children" 
+              :key="child.path"
+              :node="child"
+            />
+          </div>
+        </div>
+      `,
+      data() {
+        return {
+          expanded: false
+        }
+      },
+      computed: {
+        nodeIcon() {
+          if (this.node.type === 'directory') {
+            return this.expanded ? '📂' : '📁'
+          }
+          return '📄'
+        }
+      },
+      methods: {
+        toggle() {
+          if (this.node.type === 'directory') {
+            this.expanded = !this.expanded
+          }
+        },
+        formatSize(mb) {
+          if (!mb) return ''
+          return mb < 1 ? `${(mb * 1024).toFixed(2)} KB` : `${mb.toFixed(2)} MB`
+        }
+      }
+    }
+  },
   data() {
     return {
       activeTab: 'import-export',
       tabs: [
-        { id: 'import-export', name: '导入导出' },
+        { id: 'import-export', name: '文件结构' },
         { id: 'backup', name: '数据备份' },
         { id: 'cleanup', name: '数据清理' },
         { id: 'permissions', name: '权限管理' }
       ],
-      users: [
-        { id: 1, name: '管理员', role: '超级管理员', permissions: '全部权限' },
-        { id: 2, name: '分析师', role: '数据分析师', permissions: '只读权限' },
-        { id: 3, name: '工程师', role: '维护工程师', permissions: '读写权限' }
-      ]
+      fileTree: null,
+      loading: false,
+      error: null
+    }
+  },
+  mounted() {
+    this.loadFileTree()
+  },
+  methods: {
+    async loadFileTree() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        this.fileTree = await getDataTree('data', 3, true)
+      } catch (error) {
+        console.error('加载文件树失败:', error)
+        this.error = error.message || '加载文件树失败'
+      } finally {
+        this.loading = false
+      }
     }
   }
 }
@@ -496,5 +609,64 @@ export default {
     grid-template-columns: 1fr;
     gap: 8px;
   }
+}
+
+/* 文件树样式 */
+.file-tree-container {
+  background: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.file-tree-node {
+  margin-left: 0;
+}
+
+.node-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.node-item:hover {
+  background-color: #f8f9fa;
+}
+
+.node-icon {
+  font-size: 16px;
+}
+
+.node-name {
+  flex: 1;
+  font-size: 14px;
+  color: #495057;
+}
+
+.node-size {
+  font-size: 12px;
+  color: #6c757d;
+}
+
+.node-children {
+  margin-left: 20px;
+  border-left: 1px solid #e9ecef;
+  padding-left: 12px;
+}
+
+.loading-state,
+.error-state {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+.error-state p {
+  margin-bottom: 16px;
 }
 </style>

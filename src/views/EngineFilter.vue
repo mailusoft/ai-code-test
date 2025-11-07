@@ -47,6 +47,18 @@
           <div class="filter-section">
             <h4>📋 按基础属性筛选</h4>
             <div class="filter-grid">
+              <div class="filter-item">
+                <label>数据类型</label>
+                <select v-model="filters.dataType" @change="loadEngines" class="filter-select">
+                  <option v-for="dt in dataTypes" :key="dt.name" :value="dt.name">{{ dt.name }}</option>
+                </select>
+              </div>
+              <div class="filter-item">
+                <label>引擎列</label>
+                <select v-model="filters.engines" multiple class="filter-select" style="min-height: 100px;">
+                  <option v-for="engine in availableEngines" :key="engine" :value="engine">{{ engine }}</option>
+                </select>
+              </div>
               <div class="filter-item filter-item-relative">
                 <label>流水号/机型号</label>
                 <input 
@@ -272,16 +284,20 @@
 </template>
 
 <script>
+import { getDataTypes, filterData, getEngines } from '../services/api'
+
 export default {
   name: 'EngineFilter',
   data() {
     return {
       filters: {
         // 基础属性筛选
+        dataType: 'EOP-Sw',
         serialNumber: '',
         testDateStart: '',
         testDateEnd: '',
         testBenchNumber: '',
+        engines: [],
         
         // 异常状态筛选
         anomalyStatus: 'all',
@@ -299,7 +315,12 @@ export default {
         'TB-A001', 'TB-A002', 'TB-A003', 'TB-B001', 'TB-B002',
         'TB-C001', 'TB-C002', 'TB-D001', 'TB-D002'
       ],
-      // 模拟测试数据
+      // 数据源
+      dataTypes: [],
+      availableEngines: [],
+      loading: false,
+      error: null,
+      // 模拟测试数据（作为备用）
       testData: [
         {
           id: 1,
@@ -365,6 +386,9 @@ export default {
     if (mainContent) {
       mainContent.classList.add('fullscreen');
     }
+    
+    // 加载数据类型和引擎列表
+    this.loadInitialData()
     
     // 添加实时筛选监听
     this.setupRealtimeFiltering()
@@ -492,11 +516,84 @@ export default {
     }
   },
   methods: {
-    applyFilters() {
-      console.log('应用筛选条件:', this.filters)
-      console.log('筛选结果:', this.filteredData)
-      // 触发数字更新动画
-      this.triggerNumberAnimation()
+    async loadInitialData() {
+      try {
+        // 获取数据类型列表
+        const datatypes = await getDataTypes()
+        this.dataTypes = datatypes
+        if (datatypes.length > 0) {
+          this.filters.dataType = datatypes[0].name
+        }
+        
+        // 获取引擎列表
+        await this.loadEngines()
+      } catch (error) {
+        console.error('加载初始数据失败:', error)
+      }
+    },
+    
+    async loadEngines() {
+      try {
+        const result = await getEngines(this.filters.dataType)
+        this.availableEngines = result.engines || []
+      } catch (error) {
+        console.error('加载引擎列表失败:', error)
+        this.availableEngines = []
+      }
+    },
+    
+    async applyFilters() {
+      this.loading = true
+      this.error = null
+      
+      try {
+        console.log('应用筛选条件:', this.filters)
+        
+        // 构建筛选参数
+        const filterParams = {
+          data_type: this.filters.dataType,
+          file_index: 0,
+          limit: 100,
+          offset: 0
+        }
+        
+        // 如果有引擎选择，添加引擎筛选
+        if (this.filters.engines && this.filters.engines.length > 0) {
+          filterParams.engines = this.filters.engines
+        }
+        
+        // 如果有时间范围，添加时间范围筛选
+        if (this.filters.testDateStart || this.filters.testDateEnd) {
+          // 注意：后端的时间范围是数值类型，需要根据实际数据转换
+          // 这里暂时不添加时间范围，因为后端接口需要float类型的时间值
+        }
+        
+        // 调用后端筛选接口
+        const result = await filterData(filterParams)
+        
+        // 将结果转换为前端需要的格式
+        this.testData = result.data.map((item, index) => ({
+          id: index + 1,
+          serialNumber: item.serialNumber || `ENG-${index + 1}`,
+          engineModel: this.filters.dataType,
+          testDate: item.testDate || new Date().toISOString().split('T')[0],
+          testBenchNumber: item.testBenchNumber || 'TB-A001',
+          anomalyStatus: this.filters.anomalyStatus,
+          anomalyPhases: [],
+          anomalyTypes: [],
+          anomalyCount: 0,
+          rawData: item
+        }))
+        
+        console.log('筛选结果:', this.filteredData)
+        // 触发数字更新动画
+        this.triggerNumberAnimation()
+      } catch (error) {
+        console.error('筛选数据失败:', error)
+        this.error = error.message || '筛选数据失败'
+      } finally {
+        this.loading = false
+      }
     },
     
     triggerNumberAnimation() {
