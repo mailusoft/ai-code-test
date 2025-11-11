@@ -1,20 +1,12 @@
 <template>
   <div id="app">
-    <Sidebar />
-    <main class="main-content">
-      <router-view />
-    </main>
+    <router-view />
   </div>
 </template>
 
 <script>
-import Sidebar from './components/Sidebar.vue'
-
 export default {
-  name: 'App',
-  components: {
-    Sidebar
-  }
+  name: 'App'
 }
 </script>
 
@@ -30,34 +22,9 @@ export default {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: #2c3e50;
+  width: 100vw;
   height: 100vh;
-  display: flex;
   overflow: hidden;
-}
-
-.main-content {
-  flex: 1;
-  margin-left: 280px;
-  background: #f8f9fa;
-  overflow-y: auto;
-  min-height: 100vh;
-}
-
-/* 全屏页面样式 */
-.main-content.fullscreen {
-  margin-left: 0;
-}
-
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .main-content {
-    margin-left: 240px;
-  }
-}
-
-@media (max-width: 480px) {
-  .main-content {
-    margin-left: 0;
-  }
+  background: #000;
 }
 </style>

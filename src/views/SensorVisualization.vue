@@ -523,6 +523,8 @@ export default {
       ctx.lineWidth = 3
       ctx.lineCap = 'round'
       ctx.lineJoin = 'round'
+      ctx.shadowColor = 'rgba(102, 126, 234, 0.5)'
+      ctx.shadowBlur = 5
       
       // 绘制网格
       this.drawGrid(ctx, canvas)
@@ -565,7 +567,7 @@ export default {
     },
     
     drawGrid(ctx, canvas) {
-      ctx.strokeStyle = '#e0e0e0'
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)'
       ctx.lineWidth = 1
       
       // 水平网格线
@@ -588,7 +590,7 @@ export default {
     },
     
     drawYAxisLabels(ctx, canvas, minValue, maxValue) {
-      ctx.fillStyle = '#666'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
       ctx.font = '12px Arial'
       ctx.textAlign = 'right'
       
@@ -600,7 +602,7 @@ export default {
     },
     
     drawXAxisLabels(ctx, canvas) {
-      ctx.fillStyle = '#666'
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
       ctx.font = '12px Arial'
       ctx.textAlign = 'center'
       
@@ -905,7 +907,7 @@ export default {
 .sensor-visualization {
   width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
   overflow: hidden;
   position: fixed;
   top: 0;
@@ -916,14 +918,16 @@ export default {
 }
 
 .visualization-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: rgba(102, 126, 234, 0.2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   padding: 20px 30px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .header-controls {
@@ -1067,17 +1071,19 @@ export default {
 }
 
 .sensor-panel {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 15px;
   padding: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   overflow-y: auto;
   min-height: 0;
+  backdrop-filter: blur(10px);
 }
 
 .sensor-panel h3 {
   margin: 0 0 20px 0;
-  color: #2c3e50;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 18px;
   font-weight: 700;
 }
@@ -1095,21 +1101,22 @@ export default {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
-  border: 2px solid transparent;
-  background: #f8f9fa;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .sensor-card:hover {
-  background: #e9ecef;
+  background: rgba(255, 255, 255, 0.08);
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  border-color: rgba(102, 126, 234, 0.3);
 }
 
 .sensor-card.active {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.4) 0%, rgba(118, 75, 162, 0.4) 100%);
   color: white;
-  border-color: #667eea;
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+  border-color: rgba(102, 126, 234, 0.6);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
 }
 
 .sensor-icon {
@@ -1121,12 +1128,22 @@ export default {
   margin: 0 0 4px 0;
   font-size: 14px;
   font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.sensor-card.active .sensor-info h4 {
+  color: white;
 }
 
 .sensor-info p {
   margin: 0 0 8px 0;
   font-size: 12px;
   opacity: 0.7;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.sensor-card.active .sensor-info p {
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .sensor-status {
@@ -1153,14 +1170,16 @@ export default {
 }
 
 .chart-container {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 15px;
   padding: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  backdrop-filter: blur(10px);
 }
 
 .chart-header {
@@ -1172,7 +1191,7 @@ export default {
 
 .chart-header h3 {
   margin: 0;
-  color: #2c3e50;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 20px;
   font-weight: 700;
 }
@@ -1252,7 +1271,8 @@ export default {
 .waveform-container {
   flex: 1;
   position: relative;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 12px;
   margin-bottom: 20px;
   overflow: hidden;
@@ -1321,7 +1341,7 @@ export default {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  color: #666;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .legend-color {
@@ -1351,17 +1371,19 @@ export default {
 }
 
 .stats-panel {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 15px;
   padding: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   overflow-y: auto;
   min-height: 0;
+  backdrop-filter: blur(10px);
 }
 
 .stats-panel h3 {
   margin: 0 0 20px 0;
-  color: #2c3e50;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 18px;
   font-weight: 700;
 }
@@ -1373,12 +1395,14 @@ export default {
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   color: white;
   padding: 20px;
   border-radius: 12px;
   text-align: center;
   box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+  backdrop-filter: blur(10px);
 }
 
 .stat-value {

@@ -1,22 +1,10 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div class="header-content">
-        <h1>📈 数据统计模块</h1>
-        <p class="header-subtitle">发动机数据分析与可视化</p>
-      </div>
-      <div class="header-stats">
-        <div class="stat-item">
-          <span class="stat-number">{{ totalEngines }}</span>
-          <span class="stat-label">发动机总数</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ filteredEngines.length }}</span>
-          <span class="stat-label">当前显示</span>
-        </div>
-      </div>
+    <!-- 返回首页按钮 -->
+    <div class="back-home-btn" @click="goHome" title="返回首页">
+      <span class="back-icon">←</span>
+      <span class="back-text">返回首页</span>
     </div>
-
     <div class="page-content">
       <!-- 主标签页 -->
       <div class="main-tabs">
@@ -41,13 +29,6 @@
           >
             <span class="tab-icon">📈</span>
             <span class="tab-text">多台发动机时序图</span>
-          </button>
-          <button 
-            @click="activeMainTab = 'statistics'"
-            :class="['tab-button', { active: activeMainTab === 'statistics' }]"
-          >
-            <span class="tab-icon">📉</span>
-            <span class="tab-text">时刻统计图</span>
           </button>
         </div>
 
@@ -173,18 +154,28 @@
             </div>
           </div>
 
-          <!-- 2. 单台发动机指标时序图 -->
+          <!-- 2. 单台发动机指标时序图（可视化一：单发动机多指标时序） -->
           <div v-show="activeMainTab === 'single-engine'" class="tab-panel">
             <div class="panel-header">
-              <h2>单台发动机指标时序图</h2>
+              <h2>单台发动机多指标时序图</h2>
             </div>
 
             <!-- 选择区域 -->
             <div class="selection-section">
               <div class="selection-row">
                 <div class="selection-item">
-                  <label>选择发动机</label>
-                  <select v-model="singleEngineConfig.engineId" class="selection-input">
+                  <label>选择阶段</label>
+                  <select v-model="singleEngineConfig.stage" class="selection-input" @change="singleEngineConfig.selectedMetrics = []">
+                    <option value="">请选择阶段</option>
+                    <option value="0static">0static</option>
+                    <option value="1hispeed">1hispeed</option>
+                    <option value="2lowspeed">2lowspeed</option>
+                    <option value="3EOP-RPM">3EOP-RPM</option>
+                  </select>
+                </div>
+                <div class="selection-item">
+                  <label>选择发动机（单选）</label>
+                  <select v-model="singleEngineConfig.selectedEngineId" class="selection-input">
                     <option value="">请选择发动机</option>
                     <option 
                       v-for="engine in engines" 
@@ -197,19 +188,34 @@
                 </div>
                 <div class="selection-item">
                   <label>选择指标（可多选）</label>
-                  <div class="checkbox-group">
-                    <label 
-                      v-for="metric in availableMetrics" 
-                      :key="metric"
-                      class="checkbox-label"
-                    >
+                  <div class="engine-selector">
+                    <div class="selector-header">
                       <input 
-                        type="checkbox" 
-                        :value="metric"
-                        v-model="singleEngineConfig.selectedMetrics"
+                        type="text" 
+                        v-model="singleEngineMetricSearchText"
+                        placeholder="搜索指标..."
+                        class="search-input"
                       />
-                      <span>{{ metric }}</span>
-                    </label>
+                      <button @click="selectAllMetricsForSingle" class="btn-small">全选</button>
+                      <button @click="clearMetricSelectionForSingle" class="btn-small">清空</button>
+                    </div>
+                    <div class="selector-list">
+                      <label 
+                        v-for="indicator in filteredMetricsForSingle" 
+                        :key="indicator"
+                        class="checkbox-label"
+                      >
+                        <input 
+                          type="checkbox" 
+                          :value="indicator"
+                          v-model="singleEngineConfig.selectedMetrics"
+                        />
+                        <span>{{ indicator }}</span>
+                      </label>
+                    </div>
+                    <div class="selector-info">
+                      已选择 {{ singleEngineConfig.selectedMetrics.length }} 个指标
+                    </div>
                   </div>
                 </div>
                 <div class="selection-item">
@@ -222,6 +228,59 @@
                     <span>启用归一化</span>
                   </label>
                 </div>
+                <div class="selection-item time-range-item">
+                  <label>时间范围</label>
+                  <div class="time-range-controls">
+                    <div class="time-range-slider-container">
+                      <div class="time-range-labels">
+                        <span>开始: {{ singleEngineConfig.timeStart !== null && singleEngineConfig.timeStart !== undefined ? singleEngineConfig.timeStart.toFixed(1) : '0' }}s</span>
+                        <span>结束: {{ singleEngineConfig.timeEnd !== null && singleEngineConfig.timeEnd !== undefined ? singleEngineConfig.timeEnd.toFixed(1) : '180' }}s</span>
+                      </div>
+                      <div class="time-range-sliders">
+                        <div class="slider-group">
+                          <label>开始时间</label>
+                          <input 
+                            type="range" 
+                            v-model.number="singleEngineConfig.timeStart" 
+                            :min="0"
+                            :max="singleEngineConfig.timeEnd !== null && singleEngineConfig.timeEnd !== undefined ? singleEngineConfig.timeEnd : 180"
+                            step="0.1"
+                            class="time-slider"
+                          />
+                          <input 
+                            type="number" 
+                            v-model.number="singleEngineConfig.timeStart" 
+                            placeholder="开始时间"
+                            step="0.1"
+                            :min="0"
+                            :max="singleEngineConfig.timeEnd !== null && singleEngineConfig.timeEnd !== undefined ? singleEngineConfig.timeEnd : 180"
+                            class="time-input-small"
+                          />
+                        </div>
+                        <div class="slider-group">
+                          <label>结束时间</label>
+                          <input 
+                            type="range" 
+                            v-model.number="singleEngineConfig.timeEnd" 
+                            :min="singleEngineConfig.timeStart !== null && singleEngineConfig.timeStart !== undefined ? singleEngineConfig.timeStart : 0"
+                            :max="180"
+                            step="0.1"
+                            class="time-slider"
+                          />
+                          <input 
+                            type="number" 
+                            v-model.number="singleEngineConfig.timeEnd" 
+                            placeholder="结束时间"
+                            step="0.1"
+                            :min="singleEngineConfig.timeStart !== null && singleEngineConfig.timeStart !== undefined ? singleEngineConfig.timeStart : 0"
+                            :max="180"
+                            class="time-input-small"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <button @click="loadSingleEngineChart" class="btn btn-primary">加载图表</button>
               </div>
             </div>
@@ -229,21 +288,18 @@
             <!-- 图表区域 -->
             <div class="chart-container">
               <div v-if="singleEngineChart" class="chart-wrapper">
-                <h3 class="chart-title">
-                  {{ selectedEngine?.engineNumber || '未选择发动机' }} - 指标时序图
-                </h3>
                 <v-chart class="chart" :option="singleEngineChart" autoresize />
               </div>
               <div v-else class="empty-chart">
-                <p>请选择发动机和指标后加载图表</p>
+                <p>请选择阶段、指标和发动机后加载图表</p>
               </div>
             </div>
           </div>
 
-          <!-- 3. 多台发动机指标时序图 -->
+          <!-- 3. 多台发动机指标时序图（可视化二：单指标多台发动机时序） -->
           <div v-show="activeMainTab === 'multi-engine'" class="tab-panel">
             <div class="panel-header">
-              <h2>多台发动机指标时序图</h2>
+              <h2>单指标多台发动机时序图</h2>
             </div>
 
             <!-- 选择区域 -->
@@ -251,24 +307,24 @@
               <div class="selection-row">
                 <div class="selection-item">
                   <label>选择阶段</label>
-                  <select v-model="multiEngineConfig.stage" class="selection-input">
+                  <select v-model="multiEngineConfig.stage" class="selection-input" @change="multiEngineConfig.metric = ''">
                     <option value="">请选择阶段</option>
-                    <option value="stage1">阶段1</option>
-                    <option value="stage2">阶段2</option>
-                    <option value="stage3">阶段3</option>
-                    <option value="stage4">阶段4</option>
+                    <option value="0static">0static</option>
+                    <option value="1hispeed">1hispeed</option>
+                    <option value="2lowspeed">2lowspeed</option>
+                    <option value="3EOP-RPM">3EOP-RPM</option>
                   </select>
                 </div>
                 <div class="selection-item">
-                  <label>选择指标</label>
-                  <select v-model="multiEngineConfig.metric" class="selection-input">
+                  <label>选择指标（单选）</label>
+                  <select v-model="multiEngineConfig.metric" class="selection-input" :disabled="!multiEngineConfig.stage">
                     <option value="">请选择指标</option>
                     <option 
-                      v-for="metric in availableMetrics" 
-                      :key="metric" 
-                      :value="metric"
+                      v-for="indicator in availableIndicators" 
+                      :key="indicator" 
+                      :value="indicator"
                     >
-                      {{ metric }}
+                      {{ indicator }}
                     </option>
                   </select>
                 </div>
@@ -304,6 +360,59 @@
                     </div>
                   </div>
                 </div>
+                <div class="selection-item time-range-item">
+                  <label>时间范围</label>
+                  <div class="time-range-controls">
+                    <div class="time-range-slider-container">
+                      <div class="time-range-labels">
+                        <span>开始: {{ multiEngineConfig.timeStart !== null && multiEngineConfig.timeStart !== undefined ? multiEngineConfig.timeStart.toFixed(1) : '0' }}s</span>
+                        <span>结束: {{ multiEngineConfig.timeEnd !== null && multiEngineConfig.timeEnd !== undefined ? multiEngineConfig.timeEnd.toFixed(1) : '180' }}s</span>
+                      </div>
+                      <div class="time-range-sliders">
+                        <div class="slider-group">
+                          <label>开始时间</label>
+                          <input 
+                            type="range" 
+                            v-model.number="multiEngineConfig.timeStart" 
+                            :min="0"
+                            :max="multiEngineConfig.timeEnd !== null && multiEngineConfig.timeEnd !== undefined ? multiEngineConfig.timeEnd : 180"
+                            step="0.1"
+                            class="time-slider"
+                          />
+                          <input 
+                            type="number" 
+                            v-model.number="multiEngineConfig.timeStart" 
+                            placeholder="开始时间"
+                            step="0.1"
+                            :min="0"
+                            :max="multiEngineConfig.timeEnd !== null && multiEngineConfig.timeEnd !== undefined ? multiEngineConfig.timeEnd : 180"
+                            class="time-input-small"
+                          />
+                        </div>
+                        <div class="slider-group">
+                          <label>结束时间</label>
+                          <input 
+                            type="range" 
+                            v-model.number="multiEngineConfig.timeEnd" 
+                            :min="multiEngineConfig.timeStart !== null && multiEngineConfig.timeStart !== undefined ? multiEngineConfig.timeStart : 0"
+                            :max="180"
+                            step="0.1"
+                            class="time-slider"
+                          />
+                          <input 
+                            type="number" 
+                            v-model.number="multiEngineConfig.timeEnd" 
+                            placeholder="结束时间"
+                            step="0.1"
+                            :min="multiEngineConfig.timeStart !== null && multiEngineConfig.timeStart !== undefined ? multiEngineConfig.timeStart : 0"
+                            :max="180"
+                            class="time-input-small"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <button @click="loadMultiEngineChart" class="btn btn-primary">加载图表</button>
               </div>
             </div>
@@ -322,93 +431,6 @@
             </div>
           </div>
 
-          <!-- 4. 单个时刻各发动机指标统计图 -->
-          <div v-show="activeMainTab === 'statistics'" class="tab-panel">
-            <div class="panel-header">
-              <h2>单个时刻各发动机指标统计图</h2>
-            </div>
-
-            <!-- 选择区域 -->
-            <div class="selection-section">
-              <div class="selection-row">
-                <div class="selection-item">
-                  <label>选择阶段</label>
-                  <select v-model="statisticsConfig.stage" class="selection-input">
-                    <option value="">请选择阶段</option>
-                    <option value="stage1">阶段1</option>
-                    <option value="stage2">阶段2</option>
-                    <option value="stage3">阶段3</option>
-                    <option value="stage4">阶段4</option>
-                  </select>
-                </div>
-                <div class="selection-item">
-                  <label>选择时刻</label>
-                  <input 
-                    v-model="statisticsConfig.moment" 
-                    type="number" 
-                    step="0.1"
-                    placeholder="输入时刻值"
-                    class="selection-input"
-                  />
-                </div>
-                <div class="selection-item">
-                  <label>选择指标</label>
-                  <select v-model="statisticsConfig.metric" class="selection-input">
-                    <option value="">请选择指标</option>
-                    <option 
-                      v-for="metric in availableMetrics" 
-                      :key="metric" 
-                      :value="metric"
-                    >
-                      {{ metric }}
-                    </option>
-                  </select>
-                </div>
-                <div class="selection-item">
-                  <label>测试时间范围</label>
-                  <div class="date-range">
-                    <input 
-                      v-model="statisticsConfig.dateStart" 
-                      type="date" 
-                      class="date-input"
-                      placeholder="开始日期"
-                    />
-                    <span>至</span>
-                    <input 
-                      v-model="statisticsConfig.dateEnd" 
-                      type="date" 
-                      class="date-input"
-                      placeholder="结束日期"
-                    />
-                  </div>
-                </div>
-                <div class="selection-item">
-                  <label>区间数量</label>
-                  <input 
-                    v-model.number="statisticsConfig.bins" 
-                    type="number" 
-                    min="5"
-                    max="50"
-                    class="selection-input"
-                  />
-                </div>
-                <button @click="loadStatisticsChart" class="btn btn-primary">加载图表</button>
-              </div>
-            </div>
-
-            <!-- 图表区域 -->
-            <div class="chart-container">
-              <div v-if="statisticsChart" class="chart-wrapper">
-                <h3 class="chart-title">
-                  {{ statisticsConfig.metric }} - 时刻 {{ statisticsConfig.moment }} 的分布统计
-                </h3>
-                <v-chart class="chart" :option="statisticsChart" autoresize />
-              </div>
-              <div v-else class="empty-chart">
-                <p>请选择阶段、时刻、指标和时间范围后加载图表</p>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -483,34 +505,56 @@ export default {
       
       // 可用指标列表（从后端获取）
       availableMetrics: [],
-      
-      // 单台发动机配置
-      singleEngineConfig: {
-        engineId: '',
-        selectedMetrics: [],
-        normalize: false
+      // 阶段和指标的映射关系
+      stageIndicatorMap: {
+        '0static': [
+          '010inj2', '011inj2Rate', '012inj3', '013inj3Rate', '014inj4', '015inj4Rate',
+          '016VCT-INT', '017Vct-EXH', '018VMV', '019FVRC', '01GrossElec', '020TCV',
+          '021ETBAdapt-V', '022FRPr', '023FRFlow', '024FRP-1L', '024TP-PS', '025MAP-1L',
+          '025TP-NS', '026EOP-Sw', '027Ect-Cont', '028IAT-Cont', '029VBAT', '02IgnLF1',
+          '030VBAT2', '031Vac', '032VOP', '03IgnLF2', '04IgnLF3', '05IgnLF4',
+          '06PREINJA', '07PREINJB', '08inj1', '09inj1Rate'
+        ],
+        '1hispeed': [
+          '110CMP', 'HE_Exh', '111TDC',' Synch', '112HSFRPr', '113HSFRFlow', '114IntVac',
+          '115TP_PS', '116TP_NS', '117EOP_Sw', '118VBAT', '119VBAT2', '11GrossVac',
+          '120IAT_Cont', '121ECT_Cont', '122Velocity', '123HSVacRaw', '124HSVac4CYL',
+          '125Vac_WOT', '12CKP', 'HE_CONT', '13CMP', 'HE_IN_C', '14CMP', 'HE_Ex_C', '15TDC',
+          '16EOP',' Sw_Ramp', '17VelocityRamp', '18CKP_HE', '19CMP','HE_INT'
+        ],
+        '2lowspeed': [
+          '310LSRunT4CYL_E', '311Velocity', '312CKP','Final', '313L','NVH_V',
+          '314L','NVH','V_FFT', '315L','NVH','V_RMS', '31Vac','HStols', '32TP','PS','Close',
+          '33Vel','HStols', '34EOP','Sw_Ramp', '35LSVac_Raw', '36Vac_Def',
+          '37TP','PS_Def', '38TP','NS_Def', '39LSRunT','Raw_E'
+        ],
+        '3EOP-RPM': [
+          'EOP-SW','Velocity'
+        ]
       },
+      
+      // 单台发动机配置（可视化一：单发动机多指标时序）
+      singleEngineConfig: {
+        stage: '',
+        selectedEngineId: '',
+        selectedMetrics: [],
+        normalize: false,
+        timeStart: 0,
+        timeEnd: 180
+      },
+      singleEngineMetricSearchText: '',
       singleEngineChart: null,
       
-      // 多台发动机配置
+      // 多台发动机配置（可视化二：单指标多台发动机时序）
       multiEngineConfig: {
         stage: '',
         metric: '',
-        selectedEngineIds: []
+        selectedEngineIds: [],
+        timeStart: 0,
+        timeEnd: 180
       },
       multiEngineChart: null,
-      engineSearchText: '',
-      
-      // 统计图配置
-      statisticsConfig: {
-        stage: '',
-        moment: null,
-        metric: '',
-        dateStart: '',
-        dateEnd: '',
-        bins: 10
-      },
-      statisticsChart: null
+      engineSearchText: ''
     }
   },
   computed: {
@@ -530,6 +574,31 @@ export default {
       return this.engines.filter(engine => 
         engine.engineNumber.toLowerCase().includes(search)
       )
+    },
+    // 根据选择的阶段返回可用指标（用于多台发动机时序图）
+    availableIndicators() {
+      if (!this.multiEngineConfig.stage) {
+        return []
+      }
+      return this.stageIndicatorMap[this.multiEngineConfig.stage] || []
+    },
+    // 根据选择的阶段返回可用指标（用于单台发动机时序图）
+    availableIndicatorsForSingle() {
+      if (!this.singleEngineConfig.stage) {
+        return []
+      }
+      return this.stageIndicatorMap[this.singleEngineConfig.stage] || []
+    },
+    // 过滤后的指标列表（用于单台发动机时序图）
+    filteredMetricsForSingle() {
+      const indicators = this.availableIndicatorsForSingle
+      if (!this.singleEngineMetricSearchText) {
+        return indicators
+      }
+      const search = this.singleEngineMetricSearchText.toLowerCase()
+      return indicators.filter(indicator => 
+        indicator.toLowerCase().includes(search)
+      )
     }
   },
   mounted() {
@@ -545,6 +614,9 @@ export default {
     }
   },
   methods: {
+    goHome() {
+      this.$router.push('/')
+    },
     async loadData() {
       this.loading = true
       this.error = null
@@ -581,20 +653,20 @@ export default {
       }
     },
     
-    // 统一的路径修正函数：将 OSTATIC1（字母O）替换为 0STATIC1（数字0）
+    // 统一的路径修正函数：将 0STATIC1（字母O）替换为 0STATIC1（数字0）
     correctFilePath(path) {
       if (!path) return path
-      // 将路径中的 OSTATIC1（字母O）替换为 0STATIC1（数字0）
+      // 将路径中的 0STATIC1（字母O）替换为 0STATIC1（数字0）
       // 注意：需要处理多种情况：路径开头、路径中间、Windows路径分隔符
       let corrected = String(path)
-      // 替换路径开头的 OSTATIC1/
-      corrected = corrected.replace(/^OSTATIC1\//gi, '0STATIC1/')
-      // 替换路径中间的 /OSTATIC1/
-      corrected = corrected.replace(/\/OSTATIC1\//gi, '/0STATIC1/')
+      // 替换路径开头的 0STATIC1/
+      corrected = corrected.replace(/^0STATIC1\//gi, '0STATIC1/')
+      // 替换路径中间的 /0STATIC1/
+      corrected = corrected.replace(/\/0STATIC1\//gi, '/0STATIC1/')
       // 替换 Windows 路径分隔符的 \OSTATIC1\
-      corrected = corrected.replace(/\\OSTATIC1\\/gi, '\\0STATIC1\\')
+      corrected = corrected.replace(/\\0STATIC1\\/gi, '\\0STATIC1\\')
       // 替换路径开头的 OSTATIC1\（Windows路径）
-      corrected = corrected.replace(/^OSTATIC1\\/gi, '0STATIC1\\')
+      corrected = corrected.replace(/^0STATIC1\\/gi, '0STATIC1\\')
       // 如果路径被修正了，记录日志
       if (corrected !== path) {
         console.log(`[路径修正] ${path} -> ${corrected}`)
@@ -823,7 +895,8 @@ export default {
       this.selectedEngine = engine
       // 切换到单台发动机时序图标签页
       this.activeMainTab = 'single-engine'
-      this.singleEngineConfig.engineId = engine.id
+      // 设置选中的发动机（单选）
+      this.singleEngineConfig.selectedEngineId = engine.id
     },
     
     viewEngineDetails(engine) {
@@ -838,350 +911,148 @@ export default {
       this.multiEngineConfig.selectedEngineIds = []
     },
     
+    selectAllMetricsForSingle() {
+      this.singleEngineConfig.selectedMetrics = [...this.availableIndicatorsForSingle]
+    },
+    
+    clearMetricSelectionForSingle() {
+      this.singleEngineConfig.selectedMetrics = []
+    },
+    
     async loadSingleEngineChart() {
-      if (!this.singleEngineConfig.engineId || 
-          this.singleEngineConfig.selectedMetrics.length === 0) {
-        alert('请选择发动机和至少一个指标')
+      if (!this.singleEngineConfig.stage) {
+        alert('请选择阶段')
+        return
+      }
+      if (!this.singleEngineConfig.selectedEngineId) {
+        alert('请选择发动机')
+        return
+      }
+      if (this.singleEngineConfig.selectedMetrics.length === 0) {
+        alert('请选择至少一个指标')
         return
       }
       
       try {
-        const engine = this.engines.find(e => e.id === this.singleEngineConfig.engineId)
-        if (!engine) {
+        const selectedEngine = this.engines.find(e => e.id === this.singleEngineConfig.selectedEngineId)
+        
+        if (!selectedEngine) {
           alert('未找到选定的发动机')
           return
         }
         
-        // 获取该发动机的数据类型
-        const dataType = engine.dataType || 'EOP-Sw'
-        const engineNumber = engine.engineNumber
-        
-        // 4个阶段对应的文件名模式
-        // 注意：根据实际文件结构，OSTATIC阶段可能对应 Vct-Int1.csv, Vct-Int2.csv, Vct-Int3.csv
-        const stageFiles = [
-          'PREINJA',  // 阶段1
-          'OSTATIC1', // 阶段2 - 可能对应 Vct-Int1.csv 或类似文件
-          'OSTATIC2', // 阶段3 - 可能对应 Vct-Int2.csv 或类似文件
-          'OSTATIC3'  // 阶段4 - 可能对应 Vct-Int3.csv 或类似文件
-        ]
-        
-        // 阶段到文件索引的映射（用于查找 Vct-Int1.csv, Vct-Int2.csv 等）
-        const stageToFileIndex = {
-          'PREINJA': 0,    // PREINJA.csv
-          'OSTATIC1': 1,   // Vct-Int1.csv
-          'OSTATIC2': 2,   // Vct-Int2.csv
-          'OSTATIC3': 3    // Vct-Int3.csv
-        }
-        
-        const allSeries = []
         const metrics = this.singleEngineConfig.selectedMetrics
         const normalize = this.singleEngineConfig.normalize
+        const timeStart = this.singleEngineConfig.timeStart
+        const timeEnd = this.singleEngineConfig.timeEnd
         
-        // 获取每个阶段的数据
-        for (let stageIndex = 0; stageIndex < stageFiles.length; stageIndex++) {
-          const stageFile = stageFiles[stageIndex]
-          
-          try {
-            // 动态查找文件路径
-            let filename = null
-            
-            // 优先使用文件树查找
-            if (this.fileTree) {
-              // 根据实际文件结构，文件名可能是数据类型名称，而不是阶段名
-              // 例如：0STATIC1/016VCT-INT/Vct-Int.csv, Vct-Int1.csv, Vct-Int2.csv, Vct-Int3.csv
-              // 尝试多种可能的文件名模式
-              const possibleNames = []
-              
-              // 对于OSTATIC阶段，尝试 Vct-Int1.csv, Vct-Int2.csv, Vct-Int3.csv
-              if (stageFile.startsWith('OSTATIC')) {
-                const fileIndex = stageToFileIndex[stageFile] || 1
-                // 尝试多种命名模式
-                possibleNames.push(
-                  `Vct-Int${fileIndex}.csv`,           // Vct-Int1.csv, Vct-Int2.csv, Vct-Int3.csv
-                  `vct-int${fileIndex}.csv`,          // 小写版本
-                  `${dataType}${fileIndex}.csv`,      // 016VCT-INT1.csv
-                  `${dataType.toLowerCase()}${fileIndex}.csv` // 016vct-int1.csv
-                )
-              }
-              
-              // 通用文件名模式
-              possibleNames.push(
-                `${dataType}.csv`,           // 直接使用数据类型作为文件名
-                `${dataType.toLowerCase()}.csv`, // 小写版本
-                `${dataType.replace(/-/g, '')}.csv`, // 去掉连字符
-                `${stageFile}.csv`,          // 阶段名
-                stageFile,                   // 不带.csv扩展名
-                `${dataType}/${dataType}.csv`, // 数据类型目录下的数据类型文件
-                `${dataType}/${stageFile}.csv`,
-                `${stageFile}/${dataType}/${stageFile}.csv`
-              )
-              
-              console.log(`查找阶段 ${stageIndex + 1} 文件，数据类型: ${dataType}, 文件名模式: ${stageFile}, 尝试文件名:`, possibleNames.slice(0, 5))
-              
-              for (const name of possibleNames) {
-                const found = this.findFileInTree(this.fileTree, [name, stageFile, dataType], dataType)
-                if (found) {
-                  // 使用统一的路径修正函数
-                  filename = this.correctFilePath(found)
-                  console.log(`从文件树找到文件: ${filename}`)
-                  break
-                }
-              }
-            }
-            
-            // 如果文件树查找失败，尝试常见路径
-            if (!filename) {
-              console.warn(`文件树中未找到 ${stageFile}，尝试常见路径`)
-              // 尝试不同的路径组合
-              const pathOptions = []
-              
-              // 根据实际文件结构：0STATIC1/016VCT-INT/Vct-Int.csv
-              // 文件名通常是数据类型名称，而不是阶段名
-              const zeroStatic = '0STATIC1' // 所有文件都在0STATIC1目录下
-              
-              // 对于OSTATIC阶段，尝试多种可能的路径
-              if (stageFile.startsWith('OSTATIC')) {
-                const fileIndex = stageToFileIndex[stageFile] || 1
-                // 根据实际文件结构，文件名可能是 Vct-Int1.csv, Vct-Int2.csv, Vct-Int3.csv
-                pathOptions.push(
-                  `${zeroStatic}/${dataType}/Vct-Int${fileIndex}.csv`,        // 0STATIC1/016VCT-INT/Vct-Int1.csv (优先级最高)
-                  `${zeroStatic}/${dataType}/vct-int${fileIndex}.csv`,         // 0STATIC1/016VCT-INT/vct-int1.csv
-                  `${zeroStatic}/${dataType}/${dataType}${fileIndex}.csv`,     // 0STATIC1/016VCT-INT/016VCT-INT1.csv
-                  `${zeroStatic}/${dataType}/${dataType}.csv`,                 // 0STATIC1/016VCT-INT/016VCT-INT.csv
-                  `${zeroStatic}/${dataType}/${dataType.toLowerCase()}.csv`,  // 0STATIC1/016VCT-INT/vct-int.csv
-                  `${zeroStatic}/06${stageFile}/${stageFile}.csv`,             // 0STATIC1/06OSTATIC1/OSTATIC1.csv
-                  `${zeroStatic}/${dataType}/${stageFile}.csv`,                // 0STATIC1/016VCT-INT/OSTATIC1.csv
-                  `${zeroStatic}/${stageFile}/${stageFile}.csv`                // 0STATIC1/OSTATIC1/OSTATIC1.csv
-                )
-              } else if (stageFile === 'PREINJA') {
-                // PREINJA在0STATIC1目录下，格式：0STATIC1/06PREINJA/PREINJA.csv
-                pathOptions.push(
-                  `0STATIC1/06${stageFile}/${stageFile}.csv`,           // 0STATIC1/06PREINJA/PREINJA.csv
-                  `0STATIC1/${dataType}/${dataType}.csv`,               // 0STATIC1/016VCT-INT/016VCT-INT.csv
-                  `0STATIC1/${dataType}/${stageFile}.csv`,              // 0STATIC1/016VCT-INT/PREINJA.csv
-                  `0STATIC1/${stageFile}/${stageFile}.csv`              // 0STATIC1/PREINJA/PREINJA.csv
-                )
-              }
-              
-              // 通用路径（移除可能错误的路径）
-              // 注意：不要使用 ${stageFile} 作为目录名，因为stageFile可能是OSTATIC1（字母O）
-              // 应该统一使用 0STATIC1（数字0）
-              if (!pathOptions.length) {
-                // 如果上面的条件都没有匹配，使用通用路径
-                pathOptions.push(
-                  `0STATIC1/${dataType}/${stageFile}.csv`,
-                  `${dataType}/${stageFile}.csv`
-                )
-              }
-              
-              // 尝试所有路径，直到找到存在的文件
-              console.log(`尝试以下路径:`, pathOptions)
-              if (pathOptions.length > 0) {
-                filename = pathOptions[0] // 先使用第一个，如果失败会在catch中处理
-                // 使用统一的路径修正函数
-                filename = this.correctFilePath(filename)
-                console.log(`使用备选路径: ${filename}`)
-              } else {
-                console.error(`无法构建有效路径，stageFile: ${stageFile}, dataType: ${dataType}`)
-              }
-            }
-            
-            // 最终验证和修正路径
-            if (filename) {
-              filename = this.correctFilePath(filename)
-              console.log(`最终使用的文件路径: ${filename}`)
-            } else {
-              console.error(`无法找到阶段 ${stageIndex + 1} 的文件，stageFile: ${stageFile}, dataType: ${dataType}`)
-              continue // 跳过这个阶段
-            }
-            
-            // 获取该阶段的数据（使用发动机编号作为列名）
-            console.log(`请求数据: 文件=${filename}, 列=${engineNumber}`)
-            
-            let response = null
-            let lastError = null
-            
-            // 如果文件树已经找到文件，直接使用；否则尝试多个备选路径
-            // 注意：如果 filename 已经设置（从文件树找到），直接使用它，不要再尝试其他路径
-            const fileFoundInTree = filename && this.fileTree && (filename.includes('Vct-Int') || filename.includes('PREINJA'))
-            
-            if (!fileFoundInTree) {
-              const pathOptions = []
-              
-              // 构建所有可能的路径
-              // 根据实际文件结构：0STATIC1/016VCT-INT/Vct-Int.csv
-              // 文件名通常是数据类型名称，而不是阶段名
-              const zeroStatic = '0STATIC1'
-              
-              if (stageFile.startsWith('OSTATIC')) {
-                // 根据实际文件结构，文件名可能是数据类型名称
-                pathOptions.push(
-                  `${zeroStatic}/${dataType}/${dataType}.csv`,           // 0STATIC1/016VCT-INT/016VCT-INT.csv
-                  `${zeroStatic}/${dataType}/${dataType.toLowerCase()}.csv`, // 0STATIC1/016VCT-INT/vct-int.csv
-                  `${zeroStatic}/06${stageFile}/${stageFile}.csv`,        // 0STATIC1/06OSTATIC1/OSTATIC1.csv
-                  `${zeroStatic}/${dataType}/${stageFile}.csv`,           // 0STATIC1/016VCT-INT/OSTATIC1.csv
-                  `${zeroStatic}/${stageFile}/${stageFile}.csv`           // 0STATIC1/OSTATIC1/OSTATIC1.csv
-                )
-              } else if (stageFile === 'PREINJA') {
-                pathOptions.push(
-                  `0STATIC1/06${stageFile}/${stageFile}.csv`,             // 0STATIC1/06PREINJA/PREINJA.csv
-                  `0STATIC1/${dataType}/${dataType}.csv`,                 // 0STATIC1/016VCT-INT/016VCT-INT.csv
-                  `0STATIC1/${dataType}/${stageFile}.csv`,                // 0STATIC1/016VCT-INT/PREINJA.csv
-                  `0STATIC1/${stageFile}/${stageFile}.csv`                // 0STATIC1/PREINJA/PREINJA.csv
-                )
-              }
-              
-              // 尝试所有路径
-              for (const pathOption of pathOptions) {
-                try {
-                  // 使用统一的路径修正函数
-                  const correctedPath = this.correctFilePath(pathOption)
-                  console.log(`尝试路径: ${correctedPath}`)
-                  response = await getCsvByFile(
-                    correctedPath,
-                    [engineNumber],
-                    10000,
-                    0
-                  )
-                  console.log(`成功使用路径: ${correctedPath}`)
-                  filename = correctedPath // 更新filename为成功的路径
-                  break
-                } catch (error) {
-                  lastError = error
-                  // 如果是列名不存在的错误，记录但继续尝试其他路径
-                  if (error.message && error.message.includes('不存在于文件中')) {
-                    console.warn(`路径 ${pathOption} 中列 ${engineNumber} 不存在，继续尝试其他路径`)
-                  } else {
-                    console.warn(`路径 ${pathOption} 失败:`, error.message)
-                  }
-                  continue
-                }
-              }
-            }
-            
-            // 如果上面的循环没有成功，使用原始filename再试一次
-            if (!response && filename) {
-              try {
-                // 使用统一的路径修正函数
-                const correctedFilename = this.correctFilePath(filename)
-                if (correctedFilename !== filename) {
-                  console.log(`使用修正后的路径重试: ${correctedFilename}`)
-                }
-                response = await getCsvByFile(
-                  correctedFilename,
-                  [engineNumber], // 使用发动机编号作为指标列
-                  10000, // 获取足够多的数据点
-                  0
-                )
-                filename = correctedFilename // 更新filename
-                console.log(`成功获取阶段 ${stageIndex + 1} 数据，共 ${response.data?.length || 0} 条记录`)
-              } catch (error) {
-                lastError = error
-                // 如果是列名不存在的错误，提供更友好的错误信息
-                if (error.message && error.message.includes('不存在于文件中')) {
-                  console.warn(`阶段 ${stageIndex + 1} (${stageFile}) 的文件 ${filename} 中不存在列 ${engineNumber}，跳过该阶段`)
-                  // 尝试获取文件的第一行来查看实际列名（用于调试）
-                  try {
-                    // 先尝试获取文件的第一列（通常是时间列）来获取文件结构
-                    // 注意：后端API要求至少一个列名，所以我们使用一个通用的列名尝试
-                    // 如果失败，至少我们知道文件存在但列名不匹配
-                    const testResponse = await getCsvByFile(correctedFilename, ['time'], 1, 0)
-                    if (testResponse && testResponse.columns && testResponse.columns.length > 0) {
-                      const availableColumns = testResponse.columns.filter(col => col.toLowerCase() !== 'time') // 排除时间列
-                      if (availableColumns.length > 0) {
-                        console.log(`文件 ${filename} 的可用列（前10个）: ${availableColumns.slice(0, 10).join(', ')}${availableColumns.length > 10 ? `... (共${availableColumns.length}列)` : ` (共${availableColumns.length}列)`}`)
-                        // 检查是否有类似的列名
-                        const similarColumns = availableColumns.filter(col => 
-                          col.includes(engineNumber.substring(0, 5)) || 
-                          engineNumber.includes(col.substring(0, 5))
-                        )
-                        if (similarColumns.length > 0) {
-                          console.log(`找到类似的列名: ${similarColumns.join(', ')}`)
-                        } else {
-                          console.log(`提示: 未找到与 ${engineNumber} 类似的列名`)
-                        }
-                      }
-                    }
-                  } catch (testError) {
-                    // 如果连时间列都获取不到，说明文件可能有问题
-                    // 但我们已经知道文件存在（因为之前的错误是列名不存在，不是文件不存在）
-                    console.debug('无法获取文件列信息（可能文件格式不同）:', testError.message)
-                  }
-                  continue // 跳过这个阶段，继续处理下一个阶段
-                }
-                throw error // 重新抛出其他错误，让外层catch处理
-              }
-            }
-            
-            // 如果仍然没有响应，跳过这个阶段
-            if (!response) {
-              console.warn(`阶段 ${stageIndex + 1} (${stageFile}) 无法获取数据，跳过该阶段`)
-              continue
-            } else {
-              console.log(`成功获取阶段 ${stageIndex + 1} 数据，共 ${response.data?.length || 0} 条记录`)
-            }
-            
-            if (response.data && response.data.length > 0) {
-              // 处理每个指标的数据
-              metrics.forEach((metric, metricIndex) => {
-                // 如果指标是发动机编号，使用该列的数据
-                const metricColumn = metric === engineNumber ? engineNumber : metric
-                
-                if (!response.columns.includes(metricColumn)) {
-                  return
-                }
-                
-                const timeCol = response.columns[0] // 第一列是时间
-                let timeOffset = 0
-                // 为每个阶段添加时间偏移，使各阶段连续显示
-                if (stageIndex > 0) {
-                  // 计算前一个阶段的最大时间
-                  const prevStageData = allSeries.find(s => s.name === metric)?.data || []
-                  if (prevStageData.length > 0) {
-                    timeOffset = Math.max(...prevStageData.map(d => d[0])) + 1
-                  }
-                }
-                
-                const metricData = response.data.map(row => [
-                  row[timeCol] + timeOffset,
-                  normalize ? this.normalizeValue(row[metricColumn], metrics) : row[metricColumn]
-                ])
-                
-                // 查找或创建该指标的系列
-                let series = allSeries.find(s => s.name === metric)
-                if (!series) {
-                  const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452']
-                  series = {
-                    name: metric,
-                    type: 'line',
-                    data: [],
-                    smooth: true,
-                    lineStyle: {
-                      color: colors[metricIndex % colors.length]
-                    }
-                  }
-                  allSeries.push(series)
-                }
-                
-                // 合并数据
-                series.data = series.data.concat(metricData)
-              })
-            }
-          } catch (error) {
-            console.warn(`获取阶段 ${stageIndex + 1} 数据失败:`, error)
-          }
+        // 阶段到文件名的映射（根据实际文件结构调整）
+        const stageFileMap = {
+          '0static': '0STATIC1',
+          '1hispeed': '1hispeed',
+          '2lowspeed': '2lowspeed',
+          '3EOP-RPM': '3EOP-RPM'
         }
         
-        // 如果获取到数据，生成图表
-        if (allSeries.length > 0) {
-          // 对每个系列的数据按时间排序
-          allSeries.forEach(series => {
-            series.data.sort((a, b) => a[0] - b[0])
-          })
+        const stageFile = stageFileMap[this.singleEngineConfig.stage]
+        if (!stageFile) {
+          alert('无效的阶段选择')
+          return
+        }
+        
+        const series = []
+        const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
+        
+        const dataType = selectedEngine.dataType || 'EOP-Sw'
+        
+        try {
+          // 动态查找文件路径
+          let filename = null
           
+          // 优先使用文件树查找
+          if (this.fileTree) {
+            const possibleNames = [
+              `${stageFile}.csv`,
+              `${dataType}/${stageFile}.csv`,
+              `${stageFile}/${dataType}/${stageFile}.csv`
+            ]
+            
+            for (const name of possibleNames) {
+              const found = this.findFileInTree(this.fileTree, [name, stageFile], dataType)
+              if (found) {
+                filename = this.correctFilePath(found)
+                break
+              }
+            }
+          }
+          
+          // 如果文件树查找失败，尝试常见路径
+          if (!filename) {
+            const pathOptions = [
+              `0STATIC1/${dataType}/${stageFile}.csv`,
+              `${stageFile}/${dataType}/${stageFile}.csv`,
+              `${dataType}/${stageFile}.csv`
+            ]
+            
+            if (stageFile.startsWith('0STATIC')) {
+              const zeroStatic = '0' + stageFile.substring(1)
+              pathOptions.unshift(
+                `${zeroStatic}/${dataType}/${stageFile}.csv`
+              )
+            }
+            
+            if (pathOptions.length > 0) {
+              filename = pathOptions[0]
+              filename = this.correctFilePath(filename)
+            }
+          }
+          
+          // 获取所有指标的数据
+          const response = await getCsvByFile(
+            filename,
+            metrics,
+            10000,
+            0
+          )
+          
+          if (response.data && response.data.length > 0) {
+            const timeCol = response.columns[0]
+            
+            // 为每个指标创建一个系列
+            for (let i = 0; i < metrics.length; i++) {
+              const metric = metrics[i]
+              let metricData = response.data.map(row => [
+                row[timeCol],
+                normalize ? this.normalizeValue(row[metric], metrics) : row[metric]
+              ])
+              
+              // 应用时间范围过滤
+              if (timeStart !== null && timeStart !== undefined) {
+                metricData = metricData.filter(point => point[0] >= timeStart)
+              }
+              if (timeEnd !== null && timeEnd !== undefined) {
+                metricData = metricData.filter(point => point[0] <= timeEnd)
+              }
+              
+              series.push({
+                name: metric,
+                type: 'line',
+                data: metricData,
+                smooth: true,
+                lineStyle: {
+                  color: colors[i % colors.length]
+                }
+              })
+            }
+          }
+        } catch (error) {
+          console.warn(`获取发动机 ${selectedEngine.engineNumber} 数据失败:`, error)
+        }
+        
+        if (series.length > 0) {
           this.singleEngineChart = {
             title: {
-              text: `发动机 ${engine.engineNumber} 指标时序图`,
+              text: `${selectedEngine.engineNumber} - 多指标时序图`,
               left: 'center'
             },
             tooltip: {
@@ -1199,17 +1070,11 @@ export default {
             },
             xAxis: {
               type: 'value',
-              name: '时间 (秒)',
-              splitLine: {
-                show: true
-              }
+              name: '时间 (秒)'
             },
             yAxis: {
               type: 'value',
-              name: normalize ? '归一化值' : '指标值',
-              splitLine: {
-                show: true
-              }
+              name: normalize ? '归一化值' : '指标值'
             },
             dataZoom: [
               {
@@ -1223,7 +1088,7 @@ export default {
                 end: 100
               }
             ],
-            series: allSeries
+            series: series
           }
         } else {
           // 如果获取不到数据，使用模拟数据
@@ -1246,24 +1111,20 @@ export default {
     generateSingleEngineChart() {
       const metrics = this.singleEngineConfig.selectedMetrics
       const normalize = this.singleEngineConfig.normalize
+      const timeStart = this.singleEngineConfig.timeStart !== null && this.singleEngineConfig.timeStart !== undefined ? this.singleEngineConfig.timeStart : 0
+      const timeEnd = this.singleEngineConfig.timeEnd !== null && this.singleEngineConfig.timeEnd !== undefined ? this.singleEngineConfig.timeEnd : 180
+      const selectedEngine = this.engines.find(e => e.id === this.singleEngineConfig.selectedEngineId)
       
-      // 模拟数据：4个阶段
-      const stages = ['阶段1', '阶段2', '阶段3', '阶段4']
-      const series = []
+      const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
       
-      metrics.forEach((metric, index) => {
+      const series = metrics.map((metric, index) => {
         const data = []
-        stages.forEach((stage, stageIndex) => {
-          const stageStart = stageIndex * 100
-          const stageEnd = (stageIndex + 1) * 100
-          for (let t = stageStart; t < stageEnd; t += 5) {
-            const value = Math.sin(t / 10) * (50 + Math.random() * 20) + 100
-            data.push([t, normalize ? value / 200 : value])
-          }
-        })
+        for (let t = timeStart; t <= timeEnd; t += 0.5) {
+          const value = Math.sin(t / 10 + index) * 20 + 100 + Math.random() * 10
+          data.push([t, normalize ? value / 200 : value])
+        }
         
-        const colors = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452']
-        series.push({
+        return {
           name: metric,
           type: 'line',
           data: data,
@@ -1271,12 +1132,12 @@ export default {
           lineStyle: {
             color: colors[index % colors.length]
           }
-        })
+        }
       })
       
       return {
         title: {
-          text: '单台发动机指标时序图',
+          text: `${selectedEngine ? selectedEngine.engineNumber : '发动机'} - 多指标时序图`,
           left: 'center'
         },
         tooltip: {
@@ -1343,10 +1204,10 @@ export default {
         
         // 阶段文件映射
         const stageFileMap = {
-          '阶段1': 'PREINJA',
-          '阶段2': 'OSTATIC1',
-          '阶段3': 'OSTATIC2',
-          '阶段4': 'OSTATIC3'
+          '0static': '0STATIC1',
+          '1hispeed': '1hispeed',
+          '2lowspeed': '2lowspeed',
+          '3EOP-RPM': '3EOP-RPM'
         }
         
         const stageFile = stageFileMap[this.multiEngineConfig.stage]
@@ -1394,7 +1255,7 @@ export default {
                 `${dataType}/${stageFile}.csv`
               ]
               
-              if (stageFile.startsWith('OSTATIC')) {
+              if (stageFile.startsWith('0STATIC')) {
                 const zeroStatic = '0' + stageFile.substring(1)
                 pathOptions.unshift(
                   `${zeroStatic}/${dataType}/${stageFile}.csv`
@@ -1422,10 +1283,20 @@ export default {
             
             if (response.data && response.data.length > 0) {
               const timeCol = response.columns[0]
-              const metricData = response.data.map(row => [
+              let metricData = response.data.map(row => [
                 row[timeCol],
                 row[metric]
               ])
+              
+              // 应用时间范围过滤
+              const timeStart = this.multiEngineConfig.timeStart
+              const timeEnd = this.multiEngineConfig.timeEnd
+              if (timeStart !== null && timeStart !== undefined) {
+                metricData = metricData.filter(point => point[0] >= timeStart)
+              }
+              if (timeEnd !== null && timeEnd !== undefined) {
+                metricData = metricData.filter(point => point[0] <= timeEnd)
+              }
               
               series.push({
                 name: engine.engineNumber,
@@ -1493,10 +1364,12 @@ export default {
       const selectedEngines = this.engines.filter(e => 
         this.multiEngineConfig.selectedEngineIds.includes(e.id)
       )
+      const timeStart = this.multiEngineConfig.timeStart !== null && this.multiEngineConfig.timeStart !== undefined ? this.multiEngineConfig.timeStart : 0
+      const timeEnd = this.multiEngineConfig.timeEnd !== null && this.multiEngineConfig.timeEnd !== undefined ? this.multiEngineConfig.timeEnd : 180
       
       const series = selectedEngines.map((engine, index) => {
         const data = []
-        for (let t = 0; t < 100; t += 2) {
+        for (let t = timeStart; t <= timeEnd; t += 0.5) {
           const value = Math.sin(t / 10 + index) * 20 + 100 + Math.random() * 10
           data.push([t, value])
         }
@@ -1551,285 +1424,6 @@ export default {
       }
     },
     
-    async loadStatisticsChart() {
-      if (!this.statisticsConfig.stage || 
-          this.statisticsConfig.moment === null ||
-          !this.statisticsConfig.metric) {
-        alert('请选择阶段、时刻和指标')
-        return
-      }
-      
-      try {
-        // 阶段文件映射
-        const stageFileMap = {
-          '阶段1': 'PREINJA',
-          '阶段2': 'OSTATIC1',
-          '阶段3': 'OSTATIC2',
-          '阶段4': 'OSTATIC3'
-        }
-        
-        const stageFile = stageFileMap[this.statisticsConfig.stage]
-        if (!stageFile) {
-          alert('无效的阶段选择')
-          return
-        }
-        
-        const metric = this.statisticsConfig.metric
-        const targetTime = this.statisticsConfig.moment
-        
-        // 获取所有发动机在该时刻的指标值
-        const values = []
-        
-        // 遍历所有发动机（或根据时间范围筛选）
-        for (const engine of this.engines) {
-          // 如果设置了时间范围筛选，先检查
-          if (this.statisticsConfig.dateStart || this.statisticsConfig.dateEnd) {
-            const engineDate = new Date(engine.testDate)
-            if (this.statisticsConfig.dateStart && engineDate < new Date(this.statisticsConfig.dateStart)) {
-              continue
-            }
-            if (this.statisticsConfig.dateEnd && engineDate > new Date(this.statisticsConfig.dateEnd)) {
-              continue
-            }
-          }
-          
-          const dataType = engine.dataType || 'EOP-Sw'
-          
-          try {
-            // 动态查找文件路径
-            let filename = null
-            
-            // 优先使用文件树查找
-            if (this.fileTree) {
-              const possibleNames = [
-                `${stageFile}.csv`,
-                `${dataType}/${stageFile}.csv`,
-                `${stageFile}/${dataType}/${stageFile}.csv`
-              ]
-              
-              for (const name of possibleNames) {
-                const found = this.findFileInTree(this.fileTree, [name, stageFile], dataType)
-                if (found) {
-              // 使用统一的路径修正函数
-              filename = this.correctFilePath(found)
-                  break
-                }
-              }
-            }
-            
-            // 如果文件树查找失败，尝试常见路径
-            if (!filename) {
-              const pathOptions = [
-                `0STATIC1/${dataType}/${stageFile}.csv`,
-                `${stageFile}/${dataType}/${stageFile}.csv`,
-                `${dataType}/${stageFile}.csv`
-              ]
-              
-              if (stageFile.startsWith('OSTATIC')) {
-                const zeroStatic = '0' + stageFile.substring(1)
-                pathOptions.unshift(
-                  `${zeroStatic}/${dataType}/${stageFile}.csv`
-                )
-              }
-              
-              if (pathOptions.length > 0) {
-                filename = pathOptions[0]
-                // 使用统一的路径修正函数
-                filename = this.correctFilePath(filename)
-              }
-            }
-            
-            // 获取接近目标时刻的数据前再次验证路径
-            if (filename) {
-              filename = this.correctFilePath(filename)
-            }
-            
-            const response = await getCsvByFile(
-              filename,
-              [metric],
-              10000,
-              0
-            )
-            
-            if (response.data && response.data.length > 0) {
-              const timeCol = response.columns[0]
-              // 找到最接近目标时刻的数据点
-              let closestRow = null
-              let minDiff = Infinity
-              
-              for (const row of response.data) {
-                const diff = Math.abs(row[timeCol] - targetTime)
-                if (diff < minDiff) {
-                  minDiff = diff
-                  closestRow = row
-                }
-              }
-              
-              // 如果找到接近的数据点（误差在1秒内）
-              if (closestRow && minDiff <= 1) {
-                values.push(closestRow[metric])
-              }
-            }
-          } catch (error) {
-            console.warn(`获取发动机 ${engine.engineNumber} 数据失败:`, error)
-          }
-        }
-        
-        if (values.length > 0) {
-          // 计算直方图数据
-          const bins = this.statisticsConfig.bins || 10
-          const min = Math.min(...values)
-          const max = Math.max(...values)
-          const binWidth = (max - min) / bins
-          
-          const binCounts = new Array(bins).fill(0)
-          values.forEach(value => {
-            const binIndex = Math.min(Math.floor((value - min) / binWidth), bins - 1)
-            binCounts[binIndex]++
-          })
-          
-          const data = []
-          for (let i = 0; i < bins; i++) {
-            const binStart = min + i * binWidth
-            const binEnd = binStart + binWidth
-            data.push({
-              value: binCounts[i],
-              name: `${binStart.toFixed(1)}-${binEnd.toFixed(1)}`
-            })
-          }
-          
-          this.statisticsChart = {
-            title: {
-              text: `${this.statisticsConfig.metric} - 时刻 ${this.statisticsConfig.moment} 的分布统计`,
-              left: 'center'
-            },
-            tooltip: {
-              trigger: 'axis',
-              axisPointer: {
-                type: 'shadow'
-              }
-            },
-            grid: {
-              left: '3%',
-              right: '4%',
-              bottom: '3%',
-              top: '15%'
-            },
-            xAxis: {
-              type: 'category',
-              data: data.map(d => d.name),
-              name: this.statisticsConfig.metric + ' 值区间'
-            },
-            yAxis: {
-              type: 'value',
-              name: '发动机数量'
-            },
-            series: [
-              {
-                name: '发动机数量',
-                type: 'bar',
-                data: data.map(d => d.value),
-                itemStyle: {
-                  color: (() => {
-                    try {
-                      if (window.echarts && window.echarts.graphic && window.echarts.graphic.LinearGradient) {
-                        return new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                          { offset: 0, color: '#83bff6' },
-                          { offset: 0.5, color: '#188df0' },
-                          { offset: 1, color: '#188df0' }
-                        ])
-                      }
-                    } catch (e) {
-                      // fallback
-                    }
-                    return '#5470c6'
-                  })()
-                }
-              }
-            ]
-          }
-        } else {
-          // 如果获取不到数据，使用模拟数据
-          this.statisticsChart = this.generateStatisticsChart()
-        }
-      } catch (error) {
-        console.error('加载统计图表失败:', error)
-        alert('加载数据失败，使用模拟数据')
-        this.statisticsChart = this.generateStatisticsChart()
-      }
-    },
-    
-    generateStatisticsChart() {
-      // 模拟数据：生成直方图数据
-      const bins = this.statisticsConfig.bins || 10
-      const data = []
-      const min = 50
-      const max = 150
-      const binWidth = (max - min) / bins
-      
-      for (let i = 0; i < bins; i++) {
-        const binStart = min + i * binWidth
-        const binEnd = binStart + binWidth
-        const count = Math.floor(Math.random() * 20) + 5
-        data.push({
-          value: count,
-          name: `${binStart.toFixed(1)}-${binEnd.toFixed(1)}`
-        })
-      }
-      
-      return {
-        title: {
-          text: `${this.statisticsConfig.metric} - 时刻 ${this.statisticsConfig.moment} 的分布统计`,
-          left: 'center'
-        },
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: {
-            type: 'shadow'
-          }
-        },
-        grid: {
-          left: '3%',
-          right: '4%',
-          bottom: '3%',
-          top: '15%',
-          containLabel: true
-        },
-        xAxis: {
-          type: 'category',
-          data: data.map(d => d.name),
-          name: this.statisticsConfig.metric + ' 值区间'
-        },
-        yAxis: {
-          type: 'value',
-          name: '发动机数量'
-        },
-        series: [
-          {
-            name: '发动机数量',
-            type: 'bar',
-            data: data.map(d => d.value),
-            itemStyle: {
-              color: (() => {
-                try {
-                  if (window.echarts && window.echarts.graphic && window.echarts.graphic.LinearGradient) {
-                    return new window.echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                      { offset: 0, color: '#83bff6' },
-                      { offset: 0.5, color: '#188df0' },
-                      { offset: 1, color: '#188df0' }
-                    ])
-                  }
-                } catch (e) {
-                  // fallback
-                }
-                return '#5470c6'
-              })()
-            }
-          }
-        ]
-      }
-    },
-    
     exportData() {
       // TODO: 实现数据导出功能
       alert('导出功能开发中...')
@@ -1840,62 +1434,52 @@ export default {
 
 <style scoped>
 .page-container {
-  width: calc(100vw - 280px);
+  width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
   position: fixed;
   top: 0;
-  right: 0;
+  left: 0;
   z-index: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
 
-.page-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 24px 30px;
+.back-home-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-}
-
-.header-content h1 {
-  margin: 0 0 8px 0;
-  color: white;
-  font-size: 28px;
-  font-weight: 700;
-}
-
-.header-subtitle {
-  margin: 0;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
   color: rgba(255, 255, 255, 0.9);
   font-size: 14px;
+  font-weight: 500;
 }
 
-.header-stats {
-  display: flex;
-  gap: 30px;
+.back-home-btn:hover {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateX(-4px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
-.stat-item {
-  text-align: center;
-  color: white;
+.back-icon {
+  font-size: 18px;
+  transition: transform 0.3s ease;
 }
 
-.stat-number {
-  display: block;
-  font-size: 24px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 12px;
-  opacity: 0.9;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+.back-home-btn:hover .back-icon {
+  transform: translateX(-4px);
 }
 
 .page-content {
@@ -1903,7 +1487,9 @@ export default {
   padding: 20px;
   overflow-y: auto;
   overflow-x: hidden;
-  min-height: 0; /* 确保flex子元素可以缩小 */
+  min-height: 0;
+  width: 100%;
+  height: 100%;
 }
 
 /* 自定义滚动条样式 */
@@ -1926,19 +1512,22 @@ export default {
 }
 
 .main-tabs {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
   overflow: visible;
   display: flex;
   flex-direction: column;
   max-height: 100%;
+  height: 100%;
 }
 
 .tabs-header {
   display: flex;
-  background: #f8f9fa;
-  border-bottom: 2px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.1);
 }
 
 .tab-button {
@@ -1954,16 +1543,16 @@ export default {
   transition: all 0.3s;
   font-size: 14px;
   font-weight: 500;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .tab-button:hover {
-  background: #e9ecef;
-  color: #495057;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .tab-button.active {
-  background: white;
+  background: rgba(102, 126, 234, 0.2);
   color: #667eea;
   border-bottom: 2px solid #667eea;
   margin-bottom: -2px;
@@ -2026,7 +1615,7 @@ export default {
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2c3e50;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .panel-actions {
@@ -2035,10 +1624,11 @@ export default {
 }
 
 .filter-section {
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.05);
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .filter-row {
@@ -2056,16 +1646,18 @@ export default {
 .filter-item label {
   font-size: 14px;
   font-weight: 500;
-  color: #495057;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .filter-input,
 .filter-select {
   padding: 10px 12px;
-  border: 2px solid #e9ecef;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   font-size: 14px;
   transition: all 0.3s;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .filter-input:focus,
@@ -2076,10 +1668,11 @@ export default {
 }
 
 .table-container {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   overflow-x: auto;
   overflow-y: visible;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 /* 表格容器滚动条 */
@@ -2107,8 +1700,9 @@ export default {
 }
 
 .engine-table thead {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+  color: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
 }
 
 .engine-table th {
@@ -2122,8 +1716,10 @@ export default {
 
 .engine-table td {
   padding: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .table-row {
@@ -2132,11 +1728,21 @@ export default {
 }
 
 .table-row:hover {
-  background: #f8f9fa;
+  background: rgba(102, 126, 234, 0.15) !important;
+}
+
+.table-row:hover td {
+  color: rgba(255, 255, 255, 1) !important;
+  background: rgba(102, 126, 234, 0.15) !important;
 }
 
 .table-row.selected {
-  background: #e7f3ff;
+  background: rgba(102, 126, 234, 0.25) !important;
+}
+
+.table-row.selected td {
+  color: rgba(255, 255, 255, 1) !important;
+  background: rgba(102, 126, 234, 0.25) !important;
 }
 
 .status-badge {
@@ -2178,22 +1784,24 @@ export default {
   align-items: center;
   gap: 16px;
   padding: 20px;
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .page-btn {
   padding: 8px 16px;
-  background: white;
-  border: 2px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
+  color: rgba(255, 255, 255, 0.9);
 }
 
 .page-btn:hover:not(:disabled) {
-  background: #667eea;
-  color: white;
-  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.3);
+  color: rgba(255, 255, 255, 1);
+  border-color: rgba(102, 126, 234, 0.5);
 }
 
 .page-btn:disabled {
@@ -2203,14 +1811,15 @@ export default {
 
 .page-info {
   font-size: 14px;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .selection-section {
-  background: #f8f9fa;
+  background: rgba(255, 255, 255, 0.05);
   padding: 20px;
   border-radius: 8px;
   margin-bottom: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .selection-row {
@@ -2229,14 +1838,36 @@ export default {
 .selection-item label {
   font-size: 14px;
   font-weight: 500;
-  color: #495057;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .selection-input {
   padding: 10px 12px;
-  border: 2px solid #e9ecef;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   font-size: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.selection-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.selection-input:focus {
+  outline: none;
+  border-color: rgba(102, 126, 234, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.selection-input option {
+  background: #1a1f3a;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.selection-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .checkbox-group {
@@ -2247,8 +1878,8 @@ export default {
   overflow-y: auto;
   overflow-x: hidden;
   padding: 12px;
-  background: white;
-  border: 2px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
 }
 
@@ -2271,12 +1902,33 @@ export default {
   background: #a8a8a8;
 }
 
+.empty-indicators {
+  padding: 20px;
+  text-align: center;
+  color: #6c757d;
+  font-size: 14px;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
   gap: 6px;
   cursor: pointer;
   font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+  padding: 4px 0;
+  transition: color 0.2s ease;
+}
+
+.checkbox-label:hover {
+  color: rgba(255, 255, 255, 1);
+}
+
+.checkbox-label input[type="checkbox"] {
+  accent-color: #667eea;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
 }
 
 .switch-label {
@@ -2284,16 +1936,30 @@ export default {
   align-items: center;
   gap: 8px;
   cursor: pointer;
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+}
+
+.switch-label input[type="checkbox"] {
+  accent-color: #667eea;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.switch-label:hover {
+  color: rgba(255, 255, 255, 1);
 }
 
 .engine-selector {
-  background: white;
-  border: 2px solid #e9ecef;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   padding: 12px;
   max-height: 200px;
   display: flex;
   flex-direction: column;
+  backdrop-filter: blur(10px);
 }
 
 .selector-header {
@@ -2305,19 +1971,38 @@ export default {
 .search-input {
   flex: 1;
   padding: 8px 12px;
-  border: 1px solid #e9ecef;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   font-size: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.search-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: rgba(102, 126, 234, 0.5);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .btn-small {
   padding: 6px 12px;
-  background: #6c757d;
-  color: white;
-  border: none;
+  background: rgba(102, 126, 234, 0.3);
+  color: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   font-size: 12px;
   cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-small:hover {
+  background: rgba(102, 126, 234, 0.5);
+  border-color: rgba(102, 126, 234, 0.6);
+  transform: translateY(-1px);
 }
 
 .selector-list {
@@ -2336,25 +2021,25 @@ export default {
 }
 
 .selector-list::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 3px;
 }
 
 .selector-list::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 3px;
 }
 
 .selector-list::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: rgba(255, 255, 255, 0.3);
 }
 
 .selector-info {
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
   font-size: 12px;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.8);
 }
 
 .date-range {
@@ -2366,16 +2051,137 @@ export default {
 .date-input {
   flex: 1;
   padding: 10px 12px;
-  border: 2px solid #e9ecef;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   border-radius: 6px;
   font-size: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.date-input:focus {
+  outline: none;
+  border-color: rgba(102, 126, 234, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.date-range span {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.time-range-item {
+  grid-column: 1 / -1;
+}
+
+.time-range-controls {
+  width: 100%;
+}
+
+.time-range-slider-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+
+.time-range-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  font-weight: 500;
+}
+
+.time-range-sliders {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.slider-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.slider-group > label {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  font-weight: 500;
+}
+
+.time-slider {
+  width: 100%;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.time-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+}
+
+.time-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+}
+
+.time-slider::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+  transition: all 0.3s ease;
+}
+
+.time-slider::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.6);
+}
+
+.time-input-small {
+  width: 100px;
+  padding: 6px 10px;
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(255, 255, 255, 0.9);
+  align-self: flex-end;
+}
+
+.time-input-small::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.time-input-small:focus {
+  outline: none;
+  border-color: rgba(102, 126, 234, 0.5);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .chart-container {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   padding: 24px;
   min-height: 500px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .chart-wrapper {
@@ -2386,8 +2192,8 @@ export default {
   margin: 0 0 20px 0;
   font-size: 18px;
   font-weight: 600;
-  color: #2c3e50;
-    text-align: center;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
 }
 
 .chart {
@@ -2400,7 +2206,7 @@ export default {
   align-items: center;
   justify-content: center;
   height: 500px;
-  color: #6c757d;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 16px;
 }
 

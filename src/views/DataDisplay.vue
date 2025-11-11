@@ -1,21 +1,10 @@
 <template>
   <div class="page-container">
-    <div class="page-header">
-      <div class="header-content">
-        <h1>📊 数据展示模块——单台发动机详情</h1>
-      </div>
-      <div class="header-stats">
-        <div class="stat-item">
-          <span class="stat-number">{{ tableData.length }}</span>
-          <span class="stat-label">测试记录</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ dataTypes.length }}</span>
-          <span class="stat-label">数据类型</span>
-        </div>
-      </div>
+    <!-- 返回首页按钮 -->
+    <div class="back-home-btn" @click="goHome" title="返回首页">
+      <span class="back-icon">←</span>
+      <span class="back-text">返回首页</span>
     </div>
-
     <div class="page-content">
       <div class="data-table-container">
         <div class="table-header">
@@ -101,6 +90,9 @@ export default {
     }
   },
   methods: {
+    goHome() {
+      this.$router.push('/')
+    },
     async loadData() {
       this.loading = true
       this.error = null
@@ -146,16 +138,52 @@ export default {
 
 <style scoped>
 .page-container {
-  width: calc(100vw - 280px);
+  width: 100vw;
   height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
   position: fixed;
   top: 0;
-  right: 0;
+  left: 0;
   z-index: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.back-home-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.back-home-btn:hover {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateX(-4px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.back-icon {
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+.back-home-btn:hover .back-icon {
+  transform: translateX(-4px);
 }
 
 .page-header {
@@ -228,11 +256,13 @@ export default {
 }
 
 .page-content {
-  padding: 0;
+  padding: 20px;
   width: 100%;
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  min-height: 0;
+  height: 100%;
 }
 
 /* 自定义滚动条样式 */
@@ -257,10 +287,14 @@ export default {
 .data-table-container {
   max-width: 100%;
   margin: 0 auto;
-  padding: 40px 30px 100px 30px;
+  padding: 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
   justify-content: center;
   min-height: calc(100vh - 200px);
 }
@@ -294,21 +328,22 @@ export default {
 
 .table-subtitle {
   margin: 0;
-  color: #060708;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 20px;
-  font-weight: 400;
-  opacity: 0.8;
+  font-weight: 600;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
 .table-wrapper {
-  background: white;
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 8px 32px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3), 0 8px 32px rgba(102, 126, 234, 0.2);
   overflow: hidden;
-  border: none;
+  border: 1px solid rgba(255, 255, 255, 0.15);
   width: 100%;
   max-width: 100%;
   position: relative;
+  backdrop-filter: blur(10px);
 }
 
 .table-wrapper::before {
@@ -327,9 +362,10 @@ export default {
 }
 
 .data-table thead {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
   border-bottom: none;
   position: relative;
+  backdrop-filter: blur(10px);
 }
 
 .data-table thead::after {
@@ -346,11 +382,12 @@ export default {
   padding: 28px 24px;
   text-align: left;
   font-weight: 700;
-  color: white;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 16px;
   letter-spacing: 1px;
   text-transform: uppercase;
   position: relative;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .data-table th:not(:last-child)::after {
@@ -365,11 +402,12 @@ export default {
 
 .data-table td {
   padding: 24px;
-  border-bottom: 1px solid #f8f9fa;
-  color: #2c3e50;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
   font-size: 16px;
   font-weight: 500;
   position: relative;
+  background: rgba(255, 255, 255, 0.02);
 }
 
 .data-table td:not(:last-child)::after {
@@ -379,7 +417,7 @@ export default {
   top: 20%;
   bottom: 20%;
   width: 1px;
-  background: #f0f0f0;
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .data-table tbody tr {
@@ -388,13 +426,13 @@ export default {
 }
 
 .data-table tbody tr:nth-child(even) {
-  background: #fafbfc;
+  background: rgba(255, 255, 255, 0.03);
 }
 
 .data-table tbody tr:hover {
-  background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+  background: rgba(102, 126, 234, 0.15);
   transform: translateY(-3px);
-  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
   z-index: 1;
 }
 
@@ -447,12 +485,12 @@ export default {
 .empty-state {
   text-align: center;
   padding: 60px 40px;
-  color: #666;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 .empty-state h3 {
   margin: 0 0 16px 0;
-  color: #2c3e50;
+  color: rgba(255, 255, 255, 0.95);
   font-size: 20px;
   font-weight: 600;
 }
@@ -460,6 +498,7 @@ export default {
 .empty-state p {
   margin: 0;
   font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
 /* 响应式设计 */

@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import Home from '../views/Home.vue'
 import DataDisplay from '../views/DataDisplay.vue'
 import EngineFilter from '../views/EngineFilter.vue'
 import DataStats from '../views/DataStats.vue'
@@ -9,7 +10,12 @@ import SensorVisualization from '../views/SensorVisualization.vue'
 const routes = [
   {
     path: '/',
-    redirect: '/data-display'
+    name: 'Home',
+    component: Home,
+    meta: {
+      title: '首页',
+      icon: '🏠'
+    }
   },
   {
     path: '/data-display',

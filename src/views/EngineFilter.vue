@@ -1,30 +1,10 @@
 <template>
   <div class="engine-filter">
-    <div class="filter-header">
-      <div class="header-content">
-        <h1>🔍 发动机筛选模块</h1>
-        <!-- <p class="header-description">根据各种条件筛选和过滤发动机数据，支持多维度查询和高级分析</p> -->
-      </div>
-      <div class="header-stats">
-        <div class="stat-item">
-          <span class="stat-number">{{ filteredData.length }}</span>
-          <span class="stat-label">筛选结果</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ testData.length }}</span>
-          <span class="stat-label">总发动机数</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ activeFiltersCount }}</span>
-          <span class="stat-label">筛选条件</span>
-        </div>
-        <div class="stat-item">
-          <span class="stat-number">{{ anomalyCount }}</span>
-          <span class="stat-label">异常记录</span>
-        </div>
-      </div>
+    <!-- 返回首页按钮 -->
+    <div class="back-home-btn" @click="goHome" title="返回首页">
+      <span class="back-icon">←</span>
+      <span class="back-text">返回首页</span>
     </div>
-
     <div class="filter-content">
       <!-- 筛选条件面板 -->
       <div class="filter-panel">
@@ -43,50 +23,90 @@
         </div>
 
         <div class="filter-sections">
-          <!-- 按基础属性筛选 -->
-          <div class="filter-section">
-            <h4>📋 按基础属性筛选</h4>
-            <div class="filter-grid">
-              <div class="filter-item">
-                <label>数据类型</label>
-                <select v-model="filters.dataType" @change="loadEngines" class="filter-select">
-                  <option v-for="dt in dataTypes" :key="dt.name" :value="dt.name">{{ dt.name }}</option>
-                </select>
+          <!-- 横向导航栏式筛选菜单 -->
+          <div class="filter-navbar">
+            <!-- 数据类型 -->
+            <div class="nav-item" @mouseenter="showDropdown('dataType')" @mouseleave="hideDropdown('dataType')">
+              <span class="nav-label">
+                数据类型
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'dataType'" class="nav-dropdown" @mouseenter="showDropdown('dataType')" @mouseleave="hideDropdown('dataType')">
+                <div 
+                  v-for="dt in dataTypes" 
+                  :key="dt.name"
+                  @click="selectDataType(dt.name)"
+                  :class="['nav-dropdown-item', { active: filters.dataType === dt.name }]"
+                >
+                  {{ dt.name }}
+                </div>
               </div>
-              <div class="filter-item">
-                <label>引擎列</label>
-                <select v-model="filters.engines" multiple class="filter-select" style="min-height: 100px;">
-                  <option v-for="engine in availableEngines" :key="engine" :value="engine">{{ engine }}</option>
-                </select>
+            </div>
+
+            <!-- 引擎列 -->
+            <div class="nav-item" @mouseenter="showDropdown('engines')" @mouseleave="hideDropdown('engines')">
+              <span class="nav-label">
+                引擎列
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'engines'" class="nav-dropdown nav-dropdown-large" @mouseenter="showDropdown('engines')" @mouseleave="hideDropdown('engines')">
+                <div class="nav-dropdown-header">选择引擎（可多选）</div>
+                <div class="nav-dropdown-scroll">
+                  <div 
+                    v-for="engine in availableEngines" 
+                    :key="engine"
+                    @click="toggleEngine(engine)"
+                    :class="['nav-dropdown-item', { active: filters.engines.includes(engine) }]"
+                  >
+                    <span class="checkbox-icon">{{ filters.engines.includes(engine) ? '✓' : '' }}</span>
+                    {{ engine }}
+                  </div>
+                </div>
               </div>
-              <div class="filter-item filter-item-relative">
-                <label>流水号/机型号</label>
+            </div>
+
+            <!-- 流水号/机型号 -->
+            <div class="nav-item nav-item-input" @mouseenter="showDropdown('serialNumber')" @mouseleave="hideDropdown('serialNumber')">
+              <span class="nav-label">
+                流水号/机型号
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'serialNumber'" class="nav-dropdown nav-dropdown-input" @mouseenter="showDropdown('serialNumber')" @mouseleave="hideDropdown('serialNumber')">
                 <input 
                   v-model="filters.serialNumber" 
                   type="text" 
                   placeholder="输入流水号或机型号关键词" 
-                  class="filter-input"
+                  class="nav-input"
                   @input="onSerialNumberInput"
+                  @click.stop
                 >
-                <div v-if="serialNumberSuggestions.length > 0" class="suggestions-dropdown">
+                <div v-if="serialNumberSuggestions.length > 0" class="nav-suggestions">
                   <div 
                     v-for="suggestion in serialNumberSuggestions" 
                     :key="suggestion"
                     @click="selectSerialNumber(suggestion)"
-                    class="suggestion-item"
+                    class="nav-suggestion-item"
                   >
                     {{ suggestion }}
                   </div>
                 </div>
               </div>
-              <div class="filter-item">
-                <label>测试日期</label>
+            </div>
+
+            <!-- 测试日期 -->
+            <div class="nav-item" @mouseenter="showDropdown('testDate')" @mouseleave="hideDropdown('testDate')">
+              <span class="nav-label">
+                测试日期
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'testDate'" class="nav-dropdown nav-dropdown-date" @mouseenter="showDropdown('testDate')" @mouseleave="hideDropdown('testDate')">
                 <div class="date-range-container">
                   <input 
                     v-model="filters.testDateStart" 
                     type="date" 
                     class="date-input"
                     placeholder="开始日期"
+                    @click.stop
                   >
                   <span class="date-separator">至</span>
                   <input 
@@ -94,128 +114,128 @@
                     type="date" 
                     class="date-input"
                     placeholder="结束日期"
+                    @click.stop
                   >
                 </div>
                 <div class="quick-date-options">
-                  <button @click="setQuickDate('today')" class="quick-date-btn">今天</button>
-                  <button @click="setQuickDate('week')" class="quick-date-btn">近7天</button>
-                  <button @click="setQuickDate('month')" class="quick-date-btn">近30天</button>
-                  <button @click="setQuickDate('year')" class="quick-date-btn">近一年</button>
-                </div>
-              </div>
-              <div class="filter-item">
-                <label>台架编号</label>
-                <select v-model="filters.testBenchNumber" class="filter-select">
-                  <option value="">全部台架</option>
-                  <option v-for="bench in testBenchNumbers" :key="bench" :value="bench">{{ bench }}</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          <!-- 按异常状态筛选 -->
-          <div class="filter-section">
-            <h4>⚠️ 按异常状态筛选</h4>
-            <div class="filter-grid">
-              <div class="filter-item">
-                <label>异常状态</label>
-                <div class="anomaly-options">
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.anomalyStatus" value="all">
-                    <span class="radio-label">全部</span>
-                  </label>
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.anomalyStatus" value="normal">
-                    <span class="radio-label normal">无异常</span>
-                  </label>
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.anomalyStatus" value="overall">
-                    <span class="radio-label overall">总体异常</span>
-                  </label>
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.anomalyStatus" value="phased">
-                    <span class="radio-label phased">分阶段异常</span>
-                  </label>
-                </div>
-              </div>
-              <div v-if="filters.anomalyStatus === 'phased'" class="filter-item">
-                <label>异常阶段</label>
-                <div class="phase-options">
-                  <label class="checkbox-option">
-                    <input type="checkbox" v-model="filters.anomalyPhases" value="startup">
-                    <span class="checkbox-label">启动阶段</span>
-                  </label>
-                  <label class="checkbox-option">
-                    <input type="checkbox" v-model="filters.anomalyPhases" value="steady">
-                    <span class="checkbox-label">稳态阶段</span>
-                  </label>
-                  <label class="checkbox-option">
-                    <input type="checkbox" v-model="filters.anomalyPhases" value="shutdown">
-                    <span class="checkbox-label">停机阶段</span>
-                  </label>
-                </div>
-              </div>
-              <div class="filter-item">
-                <label>异常类型</label>
-                <div class="anomaly-type-options">
-                  <label class="checkbox-option">
-                    <input type="checkbox" v-model="filters.anomalyTypes" value="temperature">
-                    <span class="checkbox-label">温度异常</span>
-                  </label>
-                  <label class="checkbox-option">
-                    <input type="checkbox" v-model="filters.anomalyTypes" value="pressure">
-                    <span class="checkbox-label">压力异常</span>
-                  </label>
-                  <label class="checkbox-option">
-                    <input type="checkbox" v-model="filters.anomalyTypes" value="vibration">
-                    <span class="checkbox-label">振动异常</span>
-                  </label>
-                  <label class="checkbox-option">
-                    <input type="checkbox" v-model="filters.anomalyTypes" value="rpm">
-                    <span class="checkbox-label">转速异常</span>
-                  </label>
+                  <button @click.stop="setQuickDate('today')" class="quick-date-btn">今天</button>
+                  <button @click.stop="setQuickDate('week')" class="quick-date-btn">近7天</button>
+                  <button @click.stop="setQuickDate('month')" class="quick-date-btn">近30天</button>
+                  <button @click.stop="setQuickDate('year')" class="quick-date-btn">近一年</button>
                 </div>
               </div>
             </div>
-          </div>
 
-          <!-- 组合筛选 -->
-          <div class="filter-section">
-            <h4>🔗 组合筛选</h4>
-            <div class="filter-grid">
-              <div class="filter-item">
-                <label>筛选模式</label>
-                <div class="filter-mode-options">
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.filterMode" value="and">
-                    <span class="radio-label">AND (同时满足)</span>
-                  </label>
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.filterMode" value="or">
-                    <span class="radio-label">OR (满足其一)</span>
-                  </label>
+            <!-- 台架编号 -->
+            <div class="nav-item" @mouseenter="showDropdown('testBench')" @mouseleave="hideDropdown('testBench')">
+              <span class="nav-label">
+                台架编号
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'testBench'" class="nav-dropdown" @mouseenter="showDropdown('testBench')" @mouseleave="hideDropdown('testBench')">
+                <div 
+                  @click="selectTestBench('')"
+                  :class="['nav-dropdown-item', { active: filters.testBenchNumber === '' }]"
+                >
+                  全部台架
+                </div>
+                <div 
+                  v-for="bench in testBenchNumbers" 
+                  :key="bench"
+                  @click="selectTestBench(bench)"
+                  :class="['nav-dropdown-item', { active: filters.testBenchNumber === bench }]"
+                >
+                  {{ bench }}
                 </div>
               </div>
-              <div class="filter-item">
-                <label>排序方式</label>
-                <select v-model="filters.sortBy" class="filter-select">
-                  <option value="testDate">按测试日期</option>
-                  <option value="serialNumber">按流水号</option>
-                  <option value="anomalyCount">按异常数量</option>
-                  <option value="testBench">按台架编号</option>
-                </select>
+            </div>
+
+            <!-- 异常状态 -->
+            <div class="nav-item" @mouseenter="showDropdown('anomalyStatus')" @mouseleave="hideDropdown('anomalyStatus')">
+              <span class="nav-label">
+                异常状态
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'anomalyStatus'" class="nav-dropdown" @mouseenter="showDropdown('anomalyStatus')" @mouseleave="hideDropdown('anomalyStatus')">
+                <div 
+                  @click="selectAnomalyStatus('all')"
+                  :class="['nav-dropdown-item', { active: filters.anomalyStatus === 'all' }]"
+                >
+                  全部
+                </div>
+                <div 
+                  @click="selectAnomalyStatus('normal')"
+                  :class="['nav-dropdown-item', { active: filters.anomalyStatus === 'normal' }]"
+                >
+                  <span class="status-indicator normal"></span>
+                  无异常
+                </div>
+                <div 
+                  @click="selectAnomalyStatus('overall')"
+                  :class="['nav-dropdown-item', { active: filters.anomalyStatus === 'overall' }]"
+                >
+                  <span class="status-indicator overall"></span>
+                  总体异常
+                </div>
+                <div 
+                  @click="selectAnomalyStatus('phased')"
+                  :class="['nav-dropdown-item', { active: filters.anomalyStatus === 'phased' }]"
+                >
+                  <span class="status-indicator phased"></span>
+                  分阶段异常
+                </div>
               </div>
-              <div class="filter-item">
-                <label>排序顺序</label>
-                <div class="sort-order-options">
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.sortOrder" value="desc">
-                    <span class="radio-label">降序</span>
-                  </label>
-                  <label class="radio-option">
-                    <input type="radio" v-model="filters.sortOrder" value="asc">
-                    <span class="radio-label">升序</span>
-                  </label>
+            </div>
+
+            <!-- 异常类型 -->
+            <div class="nav-item" @mouseenter="showDropdown('anomalyTypes')" @mouseleave="hideDropdown('anomalyTypes')">
+              <span class="nav-label">
+                异常类型
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'anomalyTypes'" class="nav-dropdown" @mouseenter="showDropdown('anomalyTypes')" @mouseleave="hideDropdown('anomalyTypes')">
+                <div 
+                  v-for="type in anomalyTypeOptions" 
+                  :key="type.value"
+                  @click="toggleAnomalyType(type.value)"
+                  :class="['nav-dropdown-item', { active: filters.anomalyTypes.includes(type.value) }]"
+                >
+                  <span class="checkbox-icon">{{ filters.anomalyTypes.includes(type.value) ? '✓' : '' }}</span>
+                  {{ type.label }}
+                </div>
+              </div>
+            </div>
+
+            <!-- 排序方式 -->
+            <div class="nav-item" @mouseenter="showDropdown('sortBy')" @mouseleave="hideDropdown('sortBy')">
+              <span class="nav-label">
+                排序方式
+                <span class="nav-arrow">▼</span>
+              </span>
+              <div v-if="hoveredFilter === 'sortBy'" class="nav-dropdown" @mouseenter="showDropdown('sortBy')" @mouseleave="hideDropdown('sortBy')">
+                <div 
+                  @click="selectSortBy('testDate')"
+                  :class="['nav-dropdown-item', { active: filters.sortBy === 'testDate' }]"
+                >
+                  按测试日期
+                </div>
+                <div 
+                  @click="selectSortBy('serialNumber')"
+                  :class="['nav-dropdown-item', { active: filters.sortBy === 'serialNumber' }]"
+                >
+                  按流水号
+                </div>
+                <div 
+                  @click="selectSortBy('anomalyCount')"
+                  :class="['nav-dropdown-item', { active: filters.sortBy === 'anomalyCount' }]"
+                >
+                  按异常数量
+                </div>
+                <div 
+                  @click="selectSortBy('testBench')"
+                  :class="['nav-dropdown-item', { active: filters.sortBy === 'testBench' }]"
+                >
+                  按台架编号
                 </div>
               </div>
             </div>
@@ -241,41 +261,61 @@
             <p>请调整筛选条件后重新搜索</p>
           </div>
           
-          <div v-else class="results-table">
-            <table class="data-table">
-              <thead>
-                <tr>
-                  <th>流水号</th>
-                  <th>发动机型号</th>
-                  <th>测试日期</th>
-                  <th>台架编号</th>
-                  <th>异常状态</th>
-                  <th>异常数量</th>
-                  <th>操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in filteredData" :key="item.id">
-                  <td>{{ item.serialNumber }}</td>
-                  <td>{{ item.engineModel }}</td>
-                  <td>{{ item.testDate }}</td>
-                  <td>{{ item.testBenchNumber }}</td>
-                  <td>
-                    <span :class="['status-badge', item.anomalyStatus]">
-                      {{ getAnomalyStatusText(item.anomalyStatus) }}
+          <div v-else class="results-dropdown-container">
+            <div class="dropdown-select-wrapper">
+              <select v-model="selectedResultIndex" class="results-dropdown" @change="onResultSelect">
+                <option value="">请选择要查看的记录</option>
+                <option 
+                  v-for="(item, index) in filteredData" 
+                  :key="item.id" 
+                  :value="index"
+                >
+                  {{ item.serialNumber }} - {{ item.engineModel }} ({{ item.testDate }}) - {{ getAnomalyStatusText(item.anomalyStatus) }}
+                </option>
+              </select>
+            </div>
+            
+            <div v-if="selectedResult" class="selected-result-details">
+              <div class="detail-card">
+                <div class="detail-header">
+                  <h4>📋 记录详情</h4>
+                </div>
+                <div class="detail-body">
+                  <div class="detail-row">
+                    <span class="detail-label">流水号：</span>
+                    <span class="detail-value">{{ selectedResult.serialNumber }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">发动机型号：</span>
+                    <span class="detail-value">{{ selectedResult.engineModel }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">测试日期：</span>
+                    <span class="detail-value">{{ selectedResult.testDate }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">台架编号：</span>
+                    <span class="detail-value">{{ selectedResult.testBenchNumber }}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">异常状态：</span>
+                    <span :class="['status-badge', selectedResult.anomalyStatus]">
+                      {{ getAnomalyStatusText(selectedResult.anomalyStatus) }}
                     </span>
-                  </td>
-                  <td>
-                    <span class="anomaly-count">{{ item.anomalyCount }}</span>
-                  </td>
-                  <td>
-                    <button @click="viewDetails(item)" class="btn btn-primary btn-sm">
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">异常数量：</span>
+                    <span class="anomaly-count">{{ selectedResult.anomalyCount }}</span>
+                  </div>
+                  <div class="detail-actions">
+                    <button @click="viewDetails(selectedResult)" class="btn btn-primary">
+                      <span class="btn-icon">👁️</span>
                       查看详情
                     </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -314,6 +354,19 @@ export default {
       testBenchNumbers: [
         'TB-A001', 'TB-A002', 'TB-A003', 'TB-B001', 'TB-B002',
         'TB-C001', 'TB-C002', 'TB-D001', 'TB-D002'
+      ],
+      // 下拉菜单选中的结果索引
+      selectedResultIndex: '',
+      // 当前悬停的筛选项
+      hoveredFilter: '',
+      // 隐藏定时器
+      hideTimer: null,
+      // 异常类型选项
+      anomalyTypeOptions: [
+        { value: 'temperature', label: '温度异常' },
+        { value: 'pressure', label: '压力异常' },
+        { value: 'vibration', label: '振动异常' },
+        { value: 'rpm', label: '转速异常' }
       ],
       // 数据源
       dataTypes: [],
@@ -398,6 +451,16 @@ export default {
     const mainContent = document.querySelector('.main-content');
     if (mainContent) {
       mainContent.classList.remove('fullscreen');
+    }
+    // 清理定时器
+    if (this.hideTimer) {
+      clearTimeout(this.hideTimer)
+    }
+  },
+  watch: {
+    filteredData() {
+      // 当筛选结果改变时，重置选中的结果
+      this.selectedResultIndex = ''
     }
   },
   computed: {
@@ -513,9 +576,20 @@ export default {
       return this.filteredData.filter(item => 
         item.anomalyStatus === 'overall' || item.anomalyStatus === 'phased'
       ).length
+    },
+    
+    selectedResult() {
+      if (this.selectedResultIndex === '' || this.selectedResultIndex === null) {
+        return null
+      }
+      const index = parseInt(this.selectedResultIndex)
+      return this.filteredData[index] || null
     }
   },
   methods: {
+    goHome() {
+      this.$router.push('/')
+    },
     async loadInitialData() {
       try {
         // 获取数据类型列表
@@ -629,6 +703,7 @@ export default {
         sortOrder: 'desc'
       }
       this.serialNumberSuggestions = []
+      this.selectedResultIndex = ''
     },
     
     // 流水号输入建议
@@ -649,6 +724,68 @@ export default {
     selectSerialNumber(suggestion) {
       this.filters.serialNumber = suggestion
       this.serialNumberSuggestions = []
+      this.hoveredFilter = ''
+    },
+    
+    // 导航栏筛选方法
+    selectDataType(value) {
+      this.filters.dataType = value
+      this.loadEngines()
+      this.hoveredFilter = ''
+    },
+    
+    toggleEngine(engine) {
+      const index = this.filters.engines.indexOf(engine)
+      if (index > -1) {
+        this.filters.engines.splice(index, 1)
+      } else {
+        this.filters.engines.push(engine)
+      }
+    },
+    
+    selectTestBench(bench) {
+      this.filters.testBenchNumber = bench
+      this.hoveredFilter = ''
+    },
+    
+    selectAnomalyStatus(status) {
+      this.filters.anomalyStatus = status
+      this.hoveredFilter = ''
+    },
+    
+    toggleAnomalyType(type) {
+      const index = this.filters.anomalyTypes.indexOf(type)
+      if (index > -1) {
+        this.filters.anomalyTypes.splice(index, 1)
+      } else {
+        this.filters.anomalyTypes.push(type)
+      }
+    },
+    
+    selectSortBy(sortBy) {
+      this.filters.sortBy = sortBy
+      this.hoveredFilter = ''
+    },
+    
+    // 显示下拉菜单（带延迟取消）
+    showDropdown(filterName) {
+      // 清除之前的隐藏定时器
+      if (this.hideTimer) {
+        clearTimeout(this.hideTimer)
+        this.hideTimer = null
+      }
+      this.hoveredFilter = filterName
+    },
+    
+    // 隐藏下拉菜单（延迟隐藏）
+    hideDropdown(filterName) {
+      // 设置延迟隐藏，500毫秒后隐藏
+      this.hideTimer = setTimeout(() => {
+        if (this.hoveredFilter === filterName) {
+          this.hoveredFilter = ''
+        }
+        this.hideTimer = null
+      }, 1000) // 500毫秒延迟
     },
     
     // 快捷日期选择
@@ -697,6 +834,14 @@ export default {
     viewDetails(item) {
       console.log('查看详情:', item)
       // 这里可以跳转到详情页面或打开详情弹窗
+    },
+    
+    // 下拉菜单选择结果
+    onResultSelect() {
+      // 当选择改变时，可以触发其他操作
+      if (this.selectedResult) {
+        console.log('选中记录:', this.selectedResult)
+      }
     }
   }
 }
@@ -704,17 +849,52 @@ export default {
 
 <style scoped>
 .engine-filter {
-  width: calc(100vw - 280px);
-  min-height: 100vh;
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  width: 100vw;
+  height: 100vh;
+  background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0a0e27 100%);
   position: fixed;
   top: 0;
-  right: 0;
+  left: 0;
   z-index: 1;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+}
+
+.back-home-btn {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.back-home-btn:hover {
+  background: rgba(102, 126, 234, 0.3);
+  border-color: rgba(102, 126, 234, 0.5);
+  transform: translateX(-4px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.back-icon {
+  font-size: 18px;
+  transition: transform 0.3s ease;
+}
+
+.back-home-btn:hover .back-icon {
+  transform: translateX(-4px);
 }
 
 /* 自定义滚动条样式 */
@@ -736,16 +916,6 @@ export default {
   background: linear-gradient(135deg, #5a67d8 0%, #6c4bb8 100%);
 }
 
-.filter-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 24px 30px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  position: relative;
-  overflow: hidden;
-}
 
 .filter-header::before {
   content: '';
@@ -823,22 +993,30 @@ export default {
 
 .filter-content {
   flex: 1;
-  display: grid;
-  grid-template-columns: 400px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  padding: 20px 20px 40px 20px;
-  min-height: calc(100vh - 120px);
-  align-content: start;
+  padding: 20px;
+  min-height: 0;
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .filter-panel {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 15px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 160px);
-  overflow-y: auto;
+  flex-shrink: 0;
+  max-height: 40vh;
+  overflow: visible;
+  position: relative;
+  z-index: 10;
 }
 
 /* 筛选面板滚动条样式 */
@@ -861,12 +1039,14 @@ export default {
 }
 
 .panel-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3) 0%, rgba(118, 75, 162, 0.3) 100%);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 12px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-shrink: 0;
+  backdrop-filter: blur(10px);
 }
 
 .panel-header h3 {
@@ -882,9 +1062,217 @@ export default {
 
 .filter-sections {
   flex: 1;
-  padding: 24px;
-  overflow-y: auto;
+  padding: 16px 20px;
+  overflow: visible;
   min-height: 0;
+  position: relative;
+}
+
+/* 横向导航栏式筛选菜单 */
+.filter-navbar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 0;
+  border: 1px solid #e9ecef;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: visible;
+}
+
+.nav-item {
+  position: relative;
+  cursor: pointer;
+  user-select: none;
+}
+
+.nav-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  color: #495057;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s ease;
+  white-space: nowrap;
+}
+
+.nav-item:hover .nav-label {
+  color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.nav-item:hover .nav-arrow {
+  transform: rotate(180deg);
+}
+
+.nav-arrow {
+  font-size: 10px;
+  transition: transform 0.3s ease;
+  color: #999;
+}
+
+.nav-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  background: white;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  z-index: 10000;
+  min-width: 180px;
+  margin-top: 4px;
+  animation: fadeInDown 0.3s ease;
+}
+
+.nav-dropdown-large {
+  min-width: 300px;
+  max-width: 400px;
+}
+
+.nav-dropdown-input {
+  min-width: 280px;
+  padding: 12px;
+}
+
+.nav-dropdown-date {
+  min-width: 320px;
+  padding: 16px;
+}
+
+.nav-dropdown-header {
+  padding: 12px 16px;
+  font-size: 12px;
+  color: #6c757d;
+  border-bottom: 1px solid #f0f0f0;
+  background: #f8f9fa;
+}
+
+.nav-dropdown-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.nav-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #495057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.nav-dropdown-item:last-child {
+  border-bottom: none;
+}
+
+.nav-dropdown-item:hover {
+  background: #f8f9fa;
+  color: #667eea;
+}
+
+.nav-dropdown-item.active {
+  background: rgba(102, 126, 234, 0.1);
+  color: #667eea;
+  font-weight: 600;
+}
+
+.checkbox-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #ddd;
+  border-radius: 3px;
+  font-size: 12px;
+  color: #667eea;
+  background: white;
+}
+
+.nav-dropdown-item.active .checkbox-icon {
+  background: #667eea;
+  border-color: #667eea;
+  color: white;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+
+.status-indicator.normal {
+  background: #28a745;
+}
+
+.status-indicator.overall {
+  background: #dc3545;
+}
+
+.status-indicator.phased {
+  background: #ffc107;
+}
+
+.nav-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.3s ease;
+}
+
+.nav-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.nav-suggestions {
+  margin-top: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #e9ecef;
+  border-radius: 6px;
+  background: white;
+}
+
+.nav-suggestion-item {
+  padding: 10px 12px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  border-bottom: 1px solid #f8f9fa;
+}
+
+.nav-suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.nav-suggestion-item:hover {
+  background: #f8f9fa;
+  color: #667eea;
+}
+
+@keyframes fadeInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .filter-section {
@@ -902,14 +1290,19 @@ export default {
 
 .filter-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 16px;
+  align-items: start;
 }
 
 .filter-item {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.filter-item-full {
+  grid-column: 1 / -1;
 }
 
 .filter-item label {
@@ -960,22 +1353,32 @@ export default {
 }
 
 .results-panel {
-  background: white;
+  background: rgba(255, 255, 255, 0.05);
   border-radius: 15px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
   display: flex;
   flex-direction: column;
-  max-height: calc(100vh - 160px);
+  flex: 1;
+  min-height: 300px;
+  position: relative;
+  z-index: 1;
   overflow: hidden;
 }
 
+
 .results-header {
-  background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-  color: white;
-  padding: 20px 24px;
+  background: linear-gradient(135deg, rgba(23, 162, 184, 0.3) 0%, rgba(19, 132, 150, 0.3) 100%);
+  color: rgba(255, 255, 255, 0.9);
+  padding: 12px 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  backdrop-filter: blur(10px);
 }
 
 .results-header h3 {
@@ -1010,29 +1413,145 @@ export default {
 
 .results-content {
   flex: 1;
-  padding: 24px;
+  padding: 16px 20px;
+  padding-bottom: 20px;
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
-  max-height: calc(100vh - 240px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  z-index: 1;
 }
 
-/* 结果面板滚动条样式 */
+/* 筛选结果内容滚动条样式 */
 .results-content::-webkit-scrollbar {
-  width: 6px;
+  width: 8px;
 }
 
 .results-content::-webkit-scrollbar-track {
   background: #f1f1f1;
-  border-radius: 3px;
+  border-radius: 4px;
 }
 
 .results-content::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
-  border-radius: 3px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 4px;
 }
 
 .results-content::-webkit-scrollbar-thumb:hover {
-  background: #a8a8a8;
+  background: linear-gradient(135deg, #5a67d8 0%, #6c4bb8 100%);
+}
+
+/* 下拉菜单筛选模式样式 */
+.results-dropdown-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: 100%;
+}
+
+.dropdown-select-wrapper {
+  width: 100%;
+}
+
+.results-dropdown {
+  width: 100%;
+  padding: 14px 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23667eea' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+}
+
+.results-dropdown:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.results-dropdown:hover {
+  border-color: #667eea;
+}
+
+.selected-result-details {
+  width: 100%;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detail-card {
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  overflow: visible;
+  border: 1px solid #e9ecef;
+  margin-bottom: 20px;
+}
+
+.detail-header {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 16px 20px;
+}
+
+.detail-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.detail-body {
+  padding: 24px;
+}
+
+.detail-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-row:last-of-type {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #555;
+  min-width: 120px;
+  font-size: 14px;
+}
+
+.detail-value {
+  color: #2c3e50;
+  font-size: 14px;
+  flex: 1;
+}
+
+.detail-actions {
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #e9ecef;
+  display: flex;
+  justify-content: center;
 }
 
 
@@ -1354,8 +1873,6 @@ export default {
   }
   
   .filter-content {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto 1fr;
     padding: 15px 15px 40px 15px;
     gap: 15px;
     min-height: calc(100vh - 100px);
@@ -1378,11 +1895,6 @@ export default {
   
   .filter-panel,
   .results-panel {
-    max-height: none;
-    overflow-y: visible;
-  }
-  
-  .results-content {
     max-height: none;
   }
   
