@@ -1,17 +1,18 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import Home from '../views/Home.vue'
-import DataDisplay from '../views/DataDisplay.vue'
-import EngineFilter from '../views/EngineFilter.vue'
-import DataStats from '../views/DataStats.vue'
-import ModelRelated from '../views/ModelRelated.vue'
-import DataManagement from '../views/DataManagement.vue'
-import SensorVisualization from '../views/SensorVisualization.vue'
+import homepage from '@/homepage.vue'
+import DataDisplay from '@/views/DataDisplay.vue'
+import EngineFilter from '@/views/EngineFilter.vue'
+import DataStats from '@/views/DataStats.vue'
+import ModelRelated from '@/views/ModelRelated.vue'
+import DataManagement from '@/views/DataManagement.vue'
+import SensorVisualization from '@/views/SensorVisualization.vue'
+//import { Component } from 'react'
 
 const routes = [
   {
     path: '/',
-    name: 'Home',
-    component: Home,
+    name: 'home',
+    component: homepage,
     meta: {
       title: '首页',
       icon: '🏠'
